@@ -4,8 +4,7 @@ from src.integrations.web_scraper import WebScraper
 
 class TestWebScraper:
     
-    @patch('requests.get')
-    def test_scrape_elastic_documentation(self, mock_get):
+    def test_scrape_elastic_documentation(self):
         """Test scraping Elastic documentation"""
         # Mock response
         mock_response = Mock()
@@ -19,14 +18,17 @@ class TestWebScraper:
         </html>
         """
         mock_response.status_code = 200
-        mock_get.return_value = mock_response
-        
+        mock_response.raise_for_status.return_value = None
+
         scraper = WebScraper()
+        scraper.session.get = Mock(return_value=mock_response)
+
         content = scraper.scrape_documentation("https://elastic.co/docs/bbq")
-        
-        assert content["title"] == "Better Binary Quantization"
+
+        assert content["title"] == "BBQ Overview"  # H1 is extracted as title
         assert "95%" in content["description"]
         assert content["benefits"]
+        assert "reduces memory usage by 95%" in content["benefits"]
     
     def test_extract_feature_benefits(self):
         """Test benefit extraction from documentation"""

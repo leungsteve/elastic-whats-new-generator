@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import Mock, MagicMock
 from elasticsearch import Elasticsearch
-from src.core.models import Feature, Theme
+from src.core.models import Feature, Theme, Domain
 from src.integrations.elasticsearch import FeatureStorage
 
 @pytest.fixture
@@ -21,20 +21,54 @@ def sample_feature():
             "https://elastic.co/docs/bbq"
         ],
         theme=Theme.OPTIMIZE,
-        domain="search"
+        domain=Domain.SEARCH
     )
 
 @pytest.fixture
 def mock_elasticsearch():
     """Mock Elasticsearch client for testing"""
-    mock_es = Mock(spec=Elasticsearch)
+    mock_es = Mock()
     mock_es.index.return_value = {"_id": "test-id"}
     mock_es.get.return_value = {
         "_source": {
-            "name": "Test Feature",
-            "description": "Test description"
+            "id": "bbq-001",
+            "name": "Better Binary Quantization",
+            "description": "95% memory reduction with improved ranking quality",
+            "benefits": ["Reduces memory usage by 95%", "Improves ranking quality", "Faster query performance"],
+            "documentation_links": ["https://elastic.co/blog/bbq"],
+            "theme": "optimize",
+            "domain": "search",
+            "scraped_content": None,
+            "created_at": "2024-01-01T00:00:00+00:00",
+            "updated_at": "2024-01-01T00:00:00+00:00"
         }
     }
+    mock_es.search.return_value = {
+        "hits": {
+            "hits": [
+                {
+                    "_source": {
+                        "id": "bbq-001",
+                        "name": "Better Binary Quantization",
+                        "description": "95% memory reduction with improved ranking quality",
+                        "benefits": ["Reduces memory usage by 95%", "Improves ranking quality", "Faster query performance"],
+                        "documentation_links": ["https://elastic.co/blog/bbq"],
+                        "theme": "optimize",
+                        "domain": "search",
+                        "scraped_content": None,
+                        "created_at": "2024-01-01T00:00:00+00:00",
+                        "updated_at": "2024-01-01T00:00:00+00:00"
+                    }
+                }
+            ]
+        }
+    }
+    # Mock indices
+    mock_indices = Mock()
+    mock_indices.exists.return_value = False
+    mock_indices.create.return_value = {"acknowledged": True}
+    mock_es.indices = mock_indices
+    mock_es.delete.return_value = {"_id": "test-id"}
     return mock_es
 
 @pytest.fixture
