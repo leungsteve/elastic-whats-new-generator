@@ -1,0 +1,208 @@
+# Template Configuration
+templates:
+  presentation:
+    default_slides:
+      - hook
+      - innovation_overview
+      - simplify_theme
+      - optimize_theme
+      - ai_innovation_theme
+      - cross_platform_benefits
+      - competitive_differentiation
+      - business_case
+      - call_to_action
+      
+    # Multi-domain specific slides
+    all_domains_slides:
+      - platform_challenge
+      - unified_innovation_overview
+      - simplify_across_domains
+      - optimize_across_domains
+      - ai_innovation_across_domains
+      - platform_synergies
+      - competitive_platform_advantage
+      - unified_business_case
+      - platform_call_to_action
+      
+    slide_templates:
+      hook:
+        title_template: "The {domain} Infrastructure Challenge"
+        content_template: |
+          - Hidden costs of fragmented solutions
+          - Operational complexity at scale
+          - Performance bottlenecks
+          - AI adoption barriers
+          
+      platform_challenge:
+        title_template: "The Platform Consolidation Challenge"
+        content_template: |
+          - Managing multiple point solutions across Search, Observability, Security
+          - Data silos preventing unified insights
+          - Operational overhead of disparate tools
+          - Inconsistent AI/ML capabilities across domains
+          
+      unified_innovation_overview:
+        title_template: "Platform Innovation Across All Domains"
+        content_template: |
+          ## Unified Value Delivery
+          {cross_domain_feature_summary}
+          
+          ## Platform Synergies
+          {platform_benefits}
+          
+      theme_deep_dive:
+        title_template: "{theme_title} - {tagline}"
+        content_template: |
+          ## Key Innovations
+          {feature_list}
+          
+          ## Business Value
+          {business_value}
+          
+          ## Technical Benefits
+          {technical_benefits}
+          
+      cross_domain_theme:
+        title_template: "{theme_title} Across All Domains"
+        content_template: |
+          ## Search Innovations
+          {search_features}
+          
+          ## Observability Enhancements  
+          {observability_features}
+          
+          ## Security Advances
+          {security_features}
+          
+          ## Platform Value
+          {unified_value_proposition}
+          
+  lab:
+    structure:
+      - scenario_setup
+      - challenge_identification
+      - solution_walkthrough
+      - hands_on_exercise
+      - validation
+      - business_value_recap
+      
+    # Cross-domain lab structures
+    cross_domain_structure:
+      - unified_scenario_setup
+      - multi_domain_challenge
+      - platform_solution_walkthrough
+      - integrated_hands_on_exercise
+      - cross_domain_validation
+      - platform_value_demonstration
+      
+    personas:
+      search:
+        developer:
+          challenges: ["relevance tuning", "performance optimization", "scaling search"]
+          scenarios: ["ecommerce search", "enterprise search", "log search"]
+        architect:
+          challenges: ["infrastructure costs", "data distribution", "AI integration"]
+          scenarios: ["multi-cluster setup", "cost optimization", "AI search"]
+          
+      observability:
+        sre:
+          challenges: ["MTTR reduction", "alert fatigue", "cost optimization"]
+          scenarios: ["incident response", "performance monitoring", "cost analysis"]
+        devops:
+          challenges: ["deployment visibility", "troubleshooting", "automation"]
+          scenarios: ["CI/CD monitoring", "application debugging", "infrastructure automation"]
+          
+      security:
+        analyst:
+          challenges: ["threat detection", "investigation time", "false positives"]
+          scenarios: ["threat hunting", "incident investigation", "compliance monitoring"]
+        ciso:
+          challenges: ["security posture", "compliance", "team efficiency"]
+          scenarios: ["risk assessment", "compliance reporting", "team productivity"]
+          
+      # Multi-domain personas
+      all_domains:
+        platform_architect:
+          challenges: ["platform consolidation", "data correlation", "unified observability"]
+          scenarios: ["platform migration", "unified monitoring", "cross-domain analytics"]
+        cto:
+          challenges: ["technology standardization", "operational efficiency", "AI strategy"]
+          scenarios: ["platform evaluation", "cost optimization", "AI adoption"]
+        vp_engineering:
+          challenges: ["team productivity", "system reliability", "innovation velocity"]
+          scenarios: ["developer experience", "incident management", "feature delivery"]
+
+# Domain-specific configurations
+domains:
+  search:
+    sample_data_types:
+      - ecommerce_products
+      - enterprise_documents
+      - log_data
+      - knowledge_base
+    common_challenges:
+      - "Search relevance and ranking"
+      - "Query performance at scale"
+      - "Infrastructure costs"
+      - "AI/semantic search adoption"
+      
+  observability:
+    sample_data_types:
+      - application_metrics
+      - infrastructure_logs
+      - distributed_traces
+      - performance_data
+    common_challenges:
+      - "Mean time to resolution (MTTR)"
+      - "Monitoring costs and complexity"
+      - "Alert fatigue and noise"
+      - "Cross-team visibility"
+      
+  security:
+    sample_data_types:
+      - security_events
+      - threat_intelligence
+      - audit_logs
+      - network_traffic
+    common_challenges:
+      - "Threat detection accuracy"
+      - "Investigation efficiency"
+      - "Compliance requirements"
+      - "Team productivity and retention"
+      
+  # Multi-domain scenarios
+  all_domains:
+    sample_data_types:
+      - unified_platform_data
+      - cross_domain_correlations
+      - integrated_workflows
+      - platform_metrics
+    common_challenges:
+      - "Platform consolidation and standardization"
+      - "Cross-domain data correlation"
+      - "Unified security and observability"
+      - "AI adoption across all domains"
+    cross_domain_scenarios:
+      threat_hunting_with_observability:
+        description: "Use observability data to enhance security threat hunting"
+        domains: ["security", "observability"]
+        persona: "security_analyst"
+        challenge: "Correlate security events with application performance data"
+        
+      search_performance_monitoring:
+        description: "Monitor and optimize search performance using observability tools"
+        domains: ["search", "observability"]
+        persona: "search_engineer"
+        challenge: "Identify and resolve search performance bottlenecks"
+        
+      security_incident_investigation:
+        description: "Investigate security incidents using search and observability data"
+        domains: ["security", "search", "observability"]
+        persona: "incident_responder"
+        challenge: "Rapidly investigate and contain security incidents"
+        
+      ai_powered_operations:
+        description: "Implement AI-driven automation across all domains"
+        domains: ["search", "observability", "security"]
+        persona: "platform_architect"
+        challenge: "Deploy unified AI capabilities for intelligent operations"

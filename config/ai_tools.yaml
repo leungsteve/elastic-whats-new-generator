@@ -1,0 +1,38 @@
+# AI Tools Configuration
+ai_tools:
+  claude:
+    api_key: ${CLAUDE_API_KEY}
+    model: "claude-3-5-sonnet-20241022"
+    max_tokens: 4000
+    temperature: 0.7
+    
+  elastic_mcp:
+    endpoint: ${ELASTIC_MCP_ENDPOINT}
+    timeout: 30
+    max_retries: 3
+    
+  web_search:
+    provider: "brave"  # or "google", "bing"
+    api_key: ${WEB_SEARCH_API_KEY}
+    max_results: 10
+    timeout: 15
+
+# Content generation prompts
+prompts:
+  slide_content:
+    system: |
+      You are an expert technical writer creating sales-focused presentation content for Elastic.
+      Your audience includes both business and technical stakeholders.
+      Focus on business value, ROI, and competitive advantages.
+      
+  lab_instructions:
+    system: |
+      You are creating hands-on lab instructions for Elastic features.
+      Use storytelling to create realistic scenarios that practitioners face.
+      Start with a relatable challenge, create urgency, then show how Elastic solves it.
+      
+  business_value:
+    templates:
+      simplify: "Reduce operational complexity and infrastructure costs"
+      optimize: "Improve performance and resource efficiency"
+      ai_innovation: "Enable AI-powered capabilities with minimal setup"

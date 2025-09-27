@@ -1,0 +1,232 @@
+# OpenTelemetry Configuration
+observability:
+  # Service identification
+  service:
+    name: "elastic-whats-new-generator"
+    version: "1.0.0"
+    environment: "${APP_ENV:development}"
+    
+  # Elastic destination
+  elasticsearch:
+    url: "${OBSERVABILITY_ELASTICSEARCH_URL:http://localhost:9200}"
+    username: "${OBSERVABILITY_ELASTICSEARCH_USERNAME:elastic}"
+    password: "${OBSERVABILITY_ELASTICSEARCH_PASSWORD:changeme}"
+    
+  # OpenTelemetry exporters
+  exporters:
+    elasticsearch:
+      logs:
+        index_prefix: "logs-whats-new-generator"
+        dataset: "application"
+      metrics:
+        index_prefix: "metrics-whats-new-generator"
+        dataset: "application"
+      traces:
+        index_prefix: "traces-whats-new-generator"
+        dataset: "application"
+        
+  # Sampling configuration
+  sampling:
+    # Sample 100% of traces in development, 10% in production
+    ratio: "${TRACE_SAMPLING_RATIO:1.0}"
+    
+  # Resource attributes
+  resource:
+    attributes:
+      service.name: "elastic-whats-new-generator"
+      service.version: "1.0.0"
+      deployment.environment: "${APP_ENV:development}"
+      host.name: "${HOSTNAME:localhost}"
+      
+# Instrumentation configuration
+instrumentation:
+  # Automatic instrumentation
+  auto:
+    fastapi: true
+    requests: true
+    elasticsearch: true
+    asyncio: true
+    logging: true
+    
+  # Custom instrumentation
+  custom:
+    ai_interactions: true
+    content_generation: true
+    web_scraping: true
+    feature_classification: true
+    lab_generation: true
+    
+# Metrics configuration
+metrics:
+  # Custom metrics to collect
+  custom:
+    # Feature processing metrics
+    features_processed_total:
+      type: counter
+      description: "Total number of features processed"
+      labels: [domain, theme, status]
+      
+    feature_classification_duration:
+      type: histogram
+      description: "Time taken to classify features"
+      labels: [domain, model_used]
+      buckets: [0.1, 0.5, 1.0, 2.0, 5.0, 10.0]
+      
+    content_generation_duration:
+      type: histogram
+      description: "Time taken to generate content"
+      labels: [content_type, domain, ai_tool]
+      buckets: [1.0, 5.0, 10.0, 30.0, 60.0, 120.0]
+      
+    # AI tool usage metrics
+    ai_api_calls_total:
+      type: counter
+      description: "Total AI API calls made"
+      labels: [tool, operation, status]
+      
+    ai_token_usage_total:
+      type: counter
+      description: "Total AI tokens consumed"
+      labels: [tool, operation, token_type]
+      
+    # Web scraping metrics
+    web_scraping_requests_total:
+      type: counter
+      description: "Total web scraping requests"
+      labels: [site, status_code]
+      
+    web_scraping_duration:
+      type: histogram
+      description: "Web scraping request duration"
+      labels: [site]
+      buckets: [0.5, 1.0, 2.0, 5.0, 10.0, 30.0]
+      
+    # Content quality metrics
+    content_quality_score:
+      type: histogram
+      description: "Generated content quality scores"
+      labels: [content_type, domain]
+      buckets: [0.1, 0.3, 0.5, 0.7, 0.8, 0.9, 1.0]
+      
+    # Lab generation metrics
+    labs_generated_total:
+      type: counter
+      description: "Total labs generated"
+      labels: [domain, complexity, scenario_type]
+      
+    sample_data_records_generated:
+      type: counter
+      description: "Sample data records generated"
+      labels: [data_type, domain]
+
+# Logging configuration
+logging:
+  # Log format and structure
+  format: "json"
+  level: "${LOG_LEVEL:INFO}"
+  
+  # Correlation ID for request tracing
+  correlation_id:
+    enabled: true
+    header_name: "X-Correlation-ID"
+    
+  # Structured logging fields
+  fields:
+    service: "elastic-whats-new-generator"
+    version: "1.0.0"
+    environment: "${APP_ENV:development}"
+    
+  # Log sampling (for high-volume debug logs)
+  sampling:
+    debug_rate: 0.1  # Sample 10% of debug logs in production
+    
+# Tracing configuration
+tracing:
+  # Span naming conventions
+  span_naming:
+    http_requests: "HTTP {method} {route}"
+    ai_calls: "AI {tool} {operation}"
+    db_operations: "DB {operation} {collection}"
+    
+  # Custom span attributes
+  attributes:
+    # Feature processing spans
+    feature.id: true
+    feature.domain: true
+    feature.theme: true
+    
+    # AI interaction spans
+    ai.tool: true
+    ai.model: true
+    ai.tokens.input: true
+    ai.tokens.output: true
+    ai.operation: true
+    
+    # Content generation spans
+    content.type: true
+    content.domain: true
+    content.length: true
+    
+    # Web scraping spans
+    scraping.url: true
+    scraping.site: true
+    scraping.status_code: true
+    
+# Health checks and monitoring
+health_checks:
+  endpoints:
+    - name: "elasticsearch"
+      type: "elasticsearch"
+      config:
+        url: "${ELASTICSEARCH_URL:http://localhost:9200}"
+        timeout: 5
+        
+    - name: "ai_tools"
+      type: "http"
+      config:
+        url: "${CLAUDE_API_HEALTH_CHECK:https://api.anthropic.com/v1/health}"
+        timeout: 10
+        
+  # SLIs (Service Level Indicators)
+  slis:
+    availability:
+      target: 0.999  # 99.9% availability
+      
+    latency:
+      p50_target: 2.0  # 50th percentile < 2 seconds
+      p95_target: 10.0  # 95th percentile < 10 seconds
+      p99_target: 30.0  # 99th percentile < 30 seconds
+      
+    error_rate:
+      target: 0.01  # Less than 1% error rate
+
+# Alerting configuration (for Elastic deployment)
+alerting:
+  # Error rate alerts
+  error_rate_high:
+    condition: "error_rate > 0.05"  # More than 5% errors
+    duration: "5m"
+    severity: "warning"
+    
+  error_rate_critical:
+    condition: "error_rate > 0.10"  # More than 10% errors
+    duration: "2m"
+    severity: "critical"
+    
+  # Latency alerts
+  latency_high:
+    condition: "p95_latency > 30s"
+    duration: "5m"
+    severity: "warning"
+    
+  # AI tool failures
+  ai_tool_failures:
+    condition: "ai_failures > 10"  # More than 10 AI failures in window
+    duration: "5m"
+    severity: "warning"
+    
+  # Content generation failures
+  content_generation_failures:
+    condition: "content_failures > 5"
+    duration: "5m"
+    severity: "critical"

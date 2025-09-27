@@ -1,0 +1,88 @@
+# Elasticsearch Configuration
+elasticsearch:
+  url: ${ELASTICSEARCH_URL:http://localhost:9200}
+  index_prefix: "elastic-whats-new"
+  indices:
+    features: "elastic-whats-new-features"
+    presentations: "elastic-whats-new-presentations"
+    labs: "elastic-whats-new-labs"
+  
+  # Index mappings
+  mappings:
+    features:
+      properties:
+        id:
+          type: keyword
+        name:
+          type: text
+          analyzer: standard
+        description:
+          type: text
+          analyzer: standard
+        benefits:
+          type: text
+          analyzer: standard
+        theme:
+          type: keyword
+        domain:
+          type: keyword
+        documentation_links:
+          type: keyword
+        scraped_content:
+          type: text
+          analyzer: standard
+        created_at:
+          type: date
+        updated_at:
+          type: date
+        
+    presentations:
+      properties:
+        id:
+          type: keyword
+        domain:
+          type: keyword
+        quarter:
+          type: keyword
+        slides:
+          type: nested
+          properties:
+            theme:
+              type: keyword
+            title:
+              type: text
+            content:
+              type: text
+            business_value:
+              type: text
+        generated_at:
+          type: date
+        
+    labs:
+      properties:
+        id:
+          type: keyword
+        feature_ids:
+          type: keyword
+        domain:
+          type: keyword
+        title:
+          type: text
+        objective:
+          type: text
+        instructions:
+          type: text
+        sample_data:
+          type: object
+        difficulty:
+          type: keyword
+        estimated_time:
+          type: integer
+        generated_at:
+          type: date
+
+  # Search settings
+  search:
+    default_size: 50
+    max_result_window: 10000
+    timeout: "30s"

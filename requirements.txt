@@ -1,0 +1,50 @@
+# Core dependencies
+fastapi==0.104.1
+uvicorn==0.24.0
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# Elasticsearch
+elasticsearch==8.11.0
+
+# Web scraping
+requests==2.31.0
+beautifulsoup4==4.12.2
+scrapy==2.11.0
+
+# AI and ML
+anthropic==0.7.7
+openai==1.3.8
+
+# Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+httpx==0.25.2
+
+# Data processing
+pandas==2.1.4
+pyyaml==6.0.1
+jinja2==3.1.2
+
+# Development tools
+black==23.11.0
+flake8==6.1.0
+mypy==1.7.1
+pre-commit==3.6.0
+
+# Security
+bandit==1.7.5
+
+# OpenTelemetry
+opentelemetry-api==1.21.0
+opentelemetry-sdk==1.21.0
+opentelemetry-exporter-elasticsearch==1.21.0
+opentelemetry-instrumentation-fastapi==0.42b0
+opentelemetry-instrumentation-requests==0.42b0
+opentelemetry-instrumentation-elasticsearch==0.42b0
+opentelemetry-instrumentation-asyncio==0.42b0
+opentelemetry-instrumentation-logging==0.42b0
+
+# Structured logging
+structlog==23.2.0

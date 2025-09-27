@@ -1,0 +1,71 @@
+# Sample Data Generation Configuration
+sample_data:
+  generators:
+    ecommerce_products:
+      count: 1000
+      schema:
+        id: "prod-{counter:06d}"
+        name: "{product_name}"
+        description: "{product_description}"
+        category: "{category}"
+        price: "{price:float:10.99-999.99}"
+        rating: "{rating:float:1.0-5.0}"
+        in_stock: "{boolean:0.8}"
+        tags: "{tags:list:3-8}"
+        
+    security_events:
+      count: 5000
+      schema:
+        timestamp: "{timestamp:iso}"
+        event_type: "{event_type}"
+        source_ip: "{ip_address}"
+        destination_ip: "{ip_address}"
+        user_agent: "{user_agent}"
+        status_code: "{status_code}"
+        risk_score: "{risk_score:float:0.0-10.0}"
+        
+    application_logs:
+      count: 10000
+      schema:
+        timestamp: "{timestamp:iso}"
+        level: "{log_level}"
+        service: "{service_name}"
+        message: "{log_message}"
+        duration_ms: "{duration:int:1-5000}"
+        status_code: "{http_status}"
+        
+  # Data relationships for realistic scenarios
+  relationships:
+    user_sessions:
+      - user_id: "user-001"
+        events: 15
+        pattern: "normal_browsing"
+      - user_id: "user-002"
+        events: 3
+        pattern: "suspicious_activity"
+        
+    service_dependencies:
+      - service: "frontend"
+        depends_on: ["auth-service", "product-service"]
+      - service: "product-service"
+        depends_on: ["database", "cache-service"]
+        
+  # Scenario-specific data sets
+  scenarios:
+    ecommerce_search_optimization:
+      products: 1000
+      search_queries: 500
+      user_sessions: 100
+      conversion_events: 50
+      
+    security_threat_investigation:
+      security_events: 5000
+      threat_indicators: 50
+      user_accounts: 200
+      network_sessions: 1000
+      
+    application_performance_monitoring:
+      application_logs: 10000
+      metrics: 2000
+      traces: 500
+      alerts: 25

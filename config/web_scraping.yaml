@@ -1,0 +1,57 @@
+# Web Scraping Configuration
+web_scraping:
+  settings:
+    timeout: 30
+    retries: 3
+    delay: 1  # seconds between requests
+    user_agent: "Elastic-WhatsNew-Generator/1.0"
+    
+  # Site-specific configurations
+  sites:
+    elastic_co:
+      base_url: "https://www.elastic.co"
+      selectors:
+        title: "h1, .page-title, .blog-title"
+        description: ".lead, .summary, .excerpt, p:first-of-type"
+        benefits: "ul li, .benefits li, .features li"
+        content: ".content, .post-content, .documentation"
+      rate_limit: 2  # requests per second
+      
+    elastic_docs:
+      base_url: "https://www.elastic.co/guide"
+      selectors:
+        title: "h1.title, .titlepage h1"
+        description: ".abstract, .lead"
+        benefits: ".itemizedlist li, .variablelist dd"
+        code_examples: "pre code, .code-block"
+      rate_limit: 1
+      
+    github_elastic:
+      base_url: "https://github.com/elastic"
+      selectors:
+        title: "h1"
+        description: ".markdown-body p:first-of-type"
+        features: ".markdown-body ul li"
+      rate_limit: 1
+      
+  # Content extraction rules
+  extraction:
+    benefits_keywords:
+      - "reduces"
+      - "improves"
+      - "faster"
+      - "better"
+      - "simplifies"
+      - "automates"
+      - "enables"
+      - "eliminates"
+      
+    ignore_elements:
+      - "nav"
+      - "footer"
+      - "aside"
+      - ".sidebar"
+      - ".advertisement"
+      
+    min_content_length: 50
+    max_content_length: 5000
