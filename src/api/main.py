@@ -19,6 +19,7 @@ from src.core.models import Feature, Domain, Theme, SlideContent, LabInstruction
 from src.core.classifier import FeatureClassifier
 from src.core.generators.content_generator import ContentGenerator
 from src.core.generators.presentation_generator import PresentationGenerator
+from src.core.generators.unified_presentation_generator import UnifiedPresentationGenerator
 from src.integrations.elasticsearch import FeatureStorage
 from src.integrations.web_scraper import WebScraper
 from src.integrations.instruqt_exporter import InstruqtExporter
@@ -35,6 +36,7 @@ app = FastAPI(
 classifier = FeatureClassifier()
 content_generator = ContentGenerator()
 presentation_generator = PresentationGenerator(content_generator)
+unified_presentation_generator = UnifiedPresentationGenerator(content_generator)
 web_scraper = WebScraper()
 instruqt_exporter = InstruqtExporter()
 
@@ -83,6 +85,12 @@ class PresentationGenerationRequest(BaseModel):
     domain: Domain
     quarter: str = "Q1-2024"
     audience: str = "mixed"
+
+class UnifiedPresentationRequest(BaseModel):
+    feature_ids: List[str]
+    quarter: str = "Q1-2024"
+    audience: str = "mixed"
+    story_theme: str = "platform_transformation"
 
 class PresentationResponse(BaseModel):
     slides: List[Dict[str, Any]]
@@ -390,12 +398,21 @@ async def generate_complete_presentation(
         raise HTTPException(status_code=404, detail="No features found")
 
     try:
-        presentation = presentation_generator.generate_complete_presentation(
-            features=features,
-            domain=request.domain,
-            quarter=request.quarter,
-            audience=request.audience
-        )
+        # Use unified generator for ALL_DOMAINS or multi-domain scenarios
+        if request.domain == Domain.ALL_DOMAINS or len(set(f.domain for f in features)) > 1:
+            presentation = unified_presentation_generator.generate_unified_presentation(
+                features=features,
+                quarter=request.quarter,
+                audience=request.audience,
+                story_theme="platform_transformation"
+            )
+        else:
+            presentation = presentation_generator.generate_complete_presentation(
+                features=features,
+                domain=request.domain,
+                quarter=request.quarter,
+                audience=request.audience
+            )
 
         # Convert to API response format
         slides_data = []
@@ -429,6 +446,89 @@ async def generate_complete_presentation(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Presentation generation failed: {e}")
+
+
+@app.post("/presentations/unified")
+async def generate_unified_presentation(
+    request: UnifiedPresentationRequest,
+    feature_storage: Optional[FeatureStorage] = Depends(get_feature_storage)
+):
+    """Generate an enhanced unified presentation with cross-domain storytelling."""
+    # Get features
+    if not feature_storage:
+        # Use sample features for demo
+        from tests.fixtures.sample_data import get_all_sample_features
+        all_features = get_all_sample_features()
+
+        # Filter by requested feature IDs if specified
+        if request.feature_ids:
+            features = [f for f in all_features if f.id in request.feature_ids]
+        else:
+            features = all_features
+    else:
+        try:
+            if request.feature_ids:
+                features = [feature_storage.get_by_id(fid) for fid in request.feature_ids]
+                features = [f for f in features if f is not None]
+            else:
+                # Get all features across domains
+                features = feature_storage.get_all_features()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to retrieve features: {e}")
+
+    if not features:
+        raise HTTPException(status_code=404, detail="No features found")
+
+    try:
+        # Generate unified presentation
+        presentation = unified_presentation_generator.generate_unified_presentation(
+            features=features,
+            quarter=request.quarter,
+            audience=request.audience,
+            story_theme=request.story_theme
+        )
+
+        # Convert to API response format
+        slides_data = []
+        for slide in presentation.slides:
+            slides_data.append({
+                "title": slide.title,
+                "subtitle": slide.subtitle,
+                "content": slide.content,
+                "business_value": slide.business_value,
+                "theme": slide.theme.value,
+                "speaker_notes": slide.speaker_notes
+            })
+
+        # Analyze domain distribution for metadata
+        domain_counts = {}
+        for feature in features:
+            domain_counts[feature.domain.value] = domain_counts.get(feature.domain.value, 0) + 1
+
+        return {
+            "presentation": {
+                "id": presentation.id,
+                "title": presentation.title,
+                "domain": presentation.domain.value,
+                "quarter": presentation.quarter,
+                "slides": slides_data,
+                "featured_themes": [theme.value for theme in presentation.featured_themes],
+                "feature_ids": presentation.feature_ids,
+                "generated_at": presentation.generated_at.isoformat()
+            },
+            "metadata": {
+                "slide_count": len(slides_data),
+                "feature_count": len(features),
+                "domain_distribution": domain_counts,
+                "audience": request.audience,
+                "story_theme": request.story_theme,
+                "framework": "Enhanced 10-slide unified presentation framework",
+                "cross_domain_synergies": len(domain_counts) > 1,
+                "is_truly_unified": len([d for d in domain_counts.keys() if d != "all_domains"]) >= 3
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unified presentation generation failed: {e}")
 
 
 @app.post("/instruqt/export", response_model=InstruqtExportResponse)
