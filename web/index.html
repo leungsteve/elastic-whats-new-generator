@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Elastic What's New Generator</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <i class="fab fa-searchengin"></i>
+                    <h1>Elastic What's New Generator</h1>
+                </div>
+                <div class="header-actions">
+                    <button class="btn btn-primary" onclick="showAddFeatureModal()">
+                        <i class="fas fa-plus"></i> Add Feature
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main">
+            <!-- Sidebar -->
+            <aside class="sidebar">
+                <nav class="nav">
+                    <ul>
+                        <li class="nav-item active" data-tab="features">
+                            <i class="fas fa-list"></i>
+                            <span>Features</span>
+                        </li>
+                        <li class="nav-item" data-tab="presentations">
+                            <i class="fas fa-presentation"></i>
+                            <span>Presentations</span>
+                        </li>
+                        <li class="nav-item" data-tab="labs">
+                            <i class="fas fa-flask"></i>
+                            <span>Labs</span>
+                        </li>
+                        <li class="nav-item" data-tab="exports">
+                            <i class="fas fa-download"></i>
+                            <span>Exports</span>
+                        </li>
+                    </ul>
+                </nav>
+
+                <!-- Domain Filter -->
+                <div class="domain-filter">
+                    <h3>Domains</h3>
+                    <div class="filter-options">
+                        <label class="filter-option">
+                            <input type="checkbox" name="domain" value="all" checked>
+                            <span class="checkmark"></span>
+                            All Domains
+                        </label>
+                        <label class="filter-option">
+                            <input type="checkbox" name="domain" value="search" checked>
+                            <span class="checkmark"></span>
+                            Search
+                        </label>
+                        <label class="filter-option">
+                            <input type="checkbox" name="domain" value="observability" checked>
+                            <span class="checkmark"></span>
+                            Observability
+                        </label>
+                        <label class="filter-option">
+                            <input type="checkbox" name="domain" value="security" checked>
+                            <span class="checkmark"></span>
+                            Security
+                        </label>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Content Area -->
+            <div class="content">
+                <!-- Features Tab -->
+                <div id="features-tab" class="tab-content active">
+                    <div class="tab-header">
+                        <h2>Feature Management</h2>
+                        <div class="tab-actions">
+                            <div class="search-box">
+                                <input type="text" id="feature-search" placeholder="Search features...">
+                                <i class="fas fa-search"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="features-grid" id="features-grid">
+                        <!-- Features will be loaded here -->
+                        <div class="loading">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            Loading features...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Presentations Tab -->
+                <div id="presentations-tab" class="tab-content">
+                    <div class="tab-header">
+                        <h2>Presentation Generator</h2>
+                    </div>
+
+                    <div class="generator-form">
+                        <div class="form-section">
+                            <h3>Select Features</h3>
+                            <div class="feature-selector" id="presentation-features">
+                                <!-- Feature checkboxes will be populated here -->
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h3>Presentation Settings</h3>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="presentation-domain">Domain</label>
+                                    <select id="presentation-domain">
+                                        <option value="all_domains">All Domains (Unified)</option>
+                                        <option value="search">Search</option>
+                                        <option value="observability">Observability</option>
+                                        <option value="security">Security</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="presentation-quarter">Quarter</label>
+                                    <input type="text" id="presentation-quarter" value="Q1-2024">
+                                </div>
+                                <div class="form-group">
+                                    <label for="presentation-audience">Audience</label>
+                                    <select id="presentation-audience">
+                                        <option value="mixed">Mixed (Business + Technical)</option>
+                                        <option value="business">Business</option>
+                                        <option value="technical">Technical</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button class="btn btn-primary" onclick="generatePresentation()">
+                                <i class="fas fa-magic"></i> Generate Presentation
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="preview-panel" id="presentation-preview" style="display: none;">
+                        <h3>Presentation Preview</h3>
+                        <div class="preview-content" id="presentation-content">
+                            <!-- Generated presentation will appear here -->
+                        </div>
+                        <div class="export-options">
+                            <button class="btn btn-secondary" onclick="exportPresentation('standard')">
+                                <i class="fas fa-file-text"></i> Standard Markdown
+                            </button>
+                            <button class="btn btn-secondary" onclick="exportPresentation('github')">
+                                <i class="fab fa-github"></i> GitHub Markdown
+                            </button>
+                            <button class="btn btn-secondary" onclick="exportPresentation('reveal_js')">
+                                <i class="fas fa-desktop"></i> Reveal.js
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Labs Tab -->
+                <div id="labs-tab" class="tab-content">
+                    <div class="tab-header">
+                        <h2>Lab Workshop Generator</h2>
+                    </div>
+
+                    <div class="generator-form">
+                        <div class="form-section">
+                            <h3>Select Features for Labs</h3>
+                            <div class="feature-selector" id="lab-features">
+                                <!-- Feature checkboxes will be populated here -->
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h3>Workshop Settings</h3>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="workshop-title">Workshop Title</label>
+                                    <input type="text" id="workshop-title" value="Elastic Workshop">
+                                </div>
+                                <div class="form-group">
+                                    <label for="lab-format">Lab Format</label>
+                                    <select id="lab-format">
+                                        <option value="standard">Standard Markdown</option>
+                                        <option value="github">GitHub Flavored</option>
+                                        <option value="instruqt">Instruqt Compatible</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>
+                                        <input type="checkbox" id="include-metadata" checked>
+                                        Include Metadata
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button class="btn btn-primary" onclick="generateLabs()">
+                                <i class="fas fa-flask"></i> Generate Labs
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="preview-panel" id="lab-preview" style="display: none;">
+                        <h3>Lab Workshop Preview</h3>
+                        <div class="preview-content" id="lab-content">
+                            <!-- Generated labs will appear here -->
+                        </div>
+                        <div class="export-options">
+                            <button class="btn btn-secondary" onclick="exportLabs('inline')">
+                                <i class="fas fa-eye"></i> View Inline
+                            </button>
+                            <button class="btn btn-secondary" onclick="exportLabs('file')">
+                                <i class="fas fa-download"></i> Download File
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Exports Tab -->
+                <div id="exports-tab" class="tab-content">
+                    <div class="tab-header">
+                        <h2>Export Management</h2>
+                    </div>
+
+                    <div class="export-history">
+                        <h3>Recent Exports</h3>
+                        <div class="export-list" id="export-list">
+                            <!-- Export history will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Add Feature Modal -->
+    <div class="modal" id="add-feature-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add New Feature</h3>
+                <button class="close-btn" onclick="closeAddFeatureModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="add-feature-form">
+                    <div class="form-group">
+                        <label for="feature-name">Feature Name *</label>
+                        <input type="text" id="feature-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="feature-description">Description *</label>
+                        <textarea id="feature-description" rows="3" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="feature-domain">Domain *</label>
+                        <select id="feature-domain" required>
+                            <option value="">Select Domain</option>
+                            <option value="search">Search</option>
+                            <option value="observability">Observability</option>
+                            <option value="security">Security</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="feature-benefits">Benefits (one per line)</label>
+                        <textarea id="feature-benefits" rows="4" placeholder="Improved performance&#10;Better user experience&#10;Cost reduction"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="feature-links">Documentation Links (one per line)</label>
+                        <textarea id="feature-links" rows="3" placeholder="https://www.elastic.co/blog/...&#10;https://www.elastic.co/guide/..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="scrape-docs">
+                            Automatically scrape documentation content
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeAddFeatureModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="submitFeature()">
+                    <i class="fas fa-save"></i> Save Feature
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Toast -->
+    <div class="toast" id="status-toast">
+        <div class="toast-content">
+            <i class="fas fa-info-circle"></i>
+            <span class="toast-message"></span>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

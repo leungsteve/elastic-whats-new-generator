@@ -8,6 +8,8 @@ content generation, and presentation creation.
 from typing import List, Dict, Any, Optional
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from pathlib import Path
 import tempfile
@@ -40,6 +42,20 @@ app = FastAPI(
     description="Automated presentation and lab generation for Elastic features",
     version="1.0.0"
 )
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, specify actual origins
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Mount static files
+web_dir = Path(__file__).parent.parent.parent / "web"
+if web_dir.exists():
+    app.mount("/static", StaticFiles(directory=str(web_dir)), name="static")
 
 # Global instances (in production, use dependency injection)
 classifier = FeatureClassifier()
@@ -159,6 +175,16 @@ class LabMarkdownExportResponse(BaseModel):
 async def health_check():
     """Health check endpoint."""
     return {"status": "healthy", "service": "elastic-whats-new-generator"}
+
+
+# Serve web UI
+@app.get("/")
+async def serve_ui():
+    """Serve the web UI."""
+    web_file = web_dir / "index.html"
+    if web_file.exists():
+        return FileResponse(web_file)
+    return {"message": "Web UI not available", "api_docs": "/docs"}
 
 
 # Feature endpoints
