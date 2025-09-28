@@ -7,7 +7,12 @@ content generation, and presentation creation.
 
 from typing import List, Dict, Any, Optional
 from fastapi import FastAPI, HTTPException, Depends
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
+from pathlib import Path
+import tempfile
+import shutil
+import zipfile
 import uvicorn
 
 from src.core.models import Feature, Domain, Theme, SlideContent, LabInstruction
@@ -16,6 +21,7 @@ from src.core.generators.content_generator import ContentGenerator
 from src.core.generators.presentation_generator import PresentationGenerator
 from src.integrations.elasticsearch import FeatureStorage
 from src.integrations.web_scraper import WebScraper
+from src.integrations.instruqt_exporter import InstruqtExporter
 from elasticsearch import Elasticsearch
 
 # Initialize FastAPI app
@@ -30,6 +36,7 @@ classifier = FeatureClassifier()
 content_generator = ContentGenerator()
 presentation_generator = PresentationGenerator(content_generator)
 web_scraper = WebScraper()
+instruqt_exporter = InstruqtExporter()
 
 # Dependency for Elasticsearch (in production, configure with settings)
 def get_es_client():
@@ -81,6 +88,17 @@ class PresentationResponse(BaseModel):
     slides: List[Dict[str, Any]]
     domain: str
     generated_at: str
+
+class InstruqtExportRequest(BaseModel):
+    feature_ids: List[str]
+    track_title: str = "Elastic Workshop"
+    export_format: str = "zip"  # "zip" or "directory"
+
+class InstruqtExportResponse(BaseModel):
+    track_slug: str
+    download_url: str
+    file_count: int
+    track_metadata: Dict[str, Any]
 
 
 # Health check
@@ -411,6 +429,115 @@ async def generate_complete_presentation(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Presentation generation failed: {e}")
+
+
+@app.post("/instruqt/export", response_model=InstruqtExportResponse)
+async def export_instruqt_track(
+    request: InstruqtExportRequest,
+    feature_storage: Optional[FeatureStorage] = Depends(get_feature_storage)
+):
+    """Export features as Instruqt track for hands-on training."""
+    # Get features
+    if not feature_storage:
+        # Use sample features for demo
+        from tests.fixtures.sample_data import get_all_sample_features
+        all_features = get_all_sample_features()
+        features = [f for f in all_features if f.id in request.feature_ids]
+    else:
+        try:
+            features = [feature_storage.get_by_id(fid) for fid in request.feature_ids]
+            features = [f for f in features if f is not None]
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to retrieve features: {e}")
+
+    if not features:
+        raise HTTPException(status_code=404, detail="No features found")
+
+    try:
+        # Generate lab instructions for each feature
+        lab_instructions = []
+        for feature in features:
+            lab_instruction = content_generator.generate_lab_instructions(feature)
+            lab_instructions.append(lab_instruction)
+
+        # Create temporary directory for export
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            # Export to Instruqt format
+            if len(features) == 1:
+                # Single track
+                track_dir = instruqt_exporter.export_lab_instruction(
+                    lab_instructions[0],
+                    features[0],
+                    temp_path
+                )
+            else:
+                # Combined track
+                track_dir = instruqt_exporter.export_multiple_labs(
+                    lab_instructions,
+                    features,
+                    temp_path,
+                    request.track_title
+                )
+
+            # Count files
+            file_count = sum(1 for _ in track_dir.rglob("*") if _.is_file())
+
+            track_slug = track_dir.name
+
+            if request.export_format == "zip":
+                # Create ZIP file
+                zip_path = temp_path / f"{track_slug}.zip"
+                with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                    for file_path in track_dir.rglob("*"):
+                        if file_path.is_file():
+                            # Add file to ZIP with relative path
+                            arcname = file_path.relative_to(track_dir)
+                            zipf.write(file_path, arcname)
+
+                # Move ZIP to a location accessible for download
+                # In production, this would be a proper file storage service
+                download_path = Path("/tmp") / f"{track_slug}.zip"
+                shutil.copy2(zip_path, download_path)
+                download_url = f"/downloads/{track_slug}.zip"
+            else:
+                # Directory format (for development/testing)
+                download_url = f"/tracks/{track_slug}"
+                download_path = track_dir
+
+            # Get track metadata
+            track_metadata = {
+                "feature_count": len(features),
+                "total_estimated_time": sum(lab.estimated_time for lab in lab_instructions),
+                "domains": list(set(f.domain.value for f in features)),
+                "difficulties": list(set(lab.difficulty for lab in lab_instructions))
+            }
+
+            return InstruqtExportResponse(
+                track_slug=track_slug,
+                download_url=download_url,
+                file_count=file_count,
+                track_metadata=track_metadata
+            )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Instruqt export failed: {e}")
+
+
+@app.get("/downloads/{filename}")
+async def download_file(filename: str):
+    """Download exported Instruqt track files."""
+    file_path = Path("/tmp") / filename
+
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="File not found")
+
+    return FileResponse(
+        path=file_path,
+        filename=filename,
+        media_type="application/zip"
+    )
 
 
 # Development server runner
