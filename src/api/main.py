@@ -20,10 +20,19 @@ from src.core.classifier import FeatureClassifier
 from src.core.generators.content_generator import ContentGenerator
 from src.core.generators.presentation_generator import PresentationGenerator
 from src.core.generators.unified_presentation_generator import UnifiedPresentationGenerator
-from src.integrations.elasticsearch import FeatureStorage
 from src.integrations.web_scraper import WebScraper
 from src.integrations.instruqt_exporter import InstruqtExporter
-from elasticsearch import Elasticsearch
+from src.integrations.markdown_exporter import MarkdownExporter, MarkdownFormat
+
+# Optional imports
+try:
+    from src.integrations.elasticsearch import FeatureStorage
+    from elasticsearch import Elasticsearch
+    ELASTICSEARCH_AVAILABLE = True
+except ImportError:
+    ELASTICSEARCH_AVAILABLE = False
+    FeatureStorage = None
+    Elasticsearch = None
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -39,6 +48,7 @@ presentation_generator = PresentationGenerator(content_generator)
 unified_presentation_generator = UnifiedPresentationGenerator(content_generator)
 web_scraper = WebScraper()
 instruqt_exporter = InstruqtExporter()
+markdown_exporter = MarkdownExporter()
 
 # Dependency for Elasticsearch (in production, configure with settings)
 def get_es_client():
@@ -48,7 +58,7 @@ def get_es_client():
 
 def get_feature_storage(es_client = Depends(get_es_client)):
     """Get FeatureStorage instance."""
-    if es_client:
+    if es_client and ELASTICSEARCH_AVAILABLE:
         return FeatureStorage(es_client)
     return None
 
@@ -107,6 +117,41 @@ class InstruqtExportResponse(BaseModel):
     download_url: str
     file_count: int
     track_metadata: Dict[str, Any]
+
+class MarkdownExportRequest(BaseModel):
+    presentation_id: Optional[str] = None
+    feature_ids: List[str] = []
+    domain: Optional[Domain] = None
+    quarter: str = "Q1-2024"
+    audience: str = "mixed"
+    format_type: str = "standard"  # "standard", "github", "reveal_js"
+    include_speaker_notes: bool = True
+    include_metadata: bool = True
+    include_business_value: bool = True
+    filename: Optional[str] = None
+
+class MarkdownExportResponse(BaseModel):
+    content: Optional[str] = None
+    download_url: Optional[str] = None
+    filename: str
+    format_type: str
+    character_count: int
+
+class LabMarkdownExportRequest(BaseModel):
+    feature_ids: List[str]
+    track_title: str = "Elastic Workshop"
+    format_type: str = "standard"  # "standard", "github", "instruqt"
+    include_metadata: bool = True
+    export_format: str = "inline"  # "inline", "file", "multiple"
+    filename: Optional[str] = None
+
+class LabMarkdownExportResponse(BaseModel):
+    content: Optional[str] = None
+    download_url: Optional[str] = None
+    filename: str
+    format_type: str
+    character_count: int
+    lab_count: int
 
 
 # Health check
@@ -529,6 +574,368 @@ async def generate_unified_presentation(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Unified presentation generation failed: {e}")
+
+
+@app.post("/presentations/markdown/export", response_model=MarkdownExportResponse)
+async def export_presentation_markdown(
+    request: MarkdownExportRequest,
+    feature_storage: Optional[FeatureStorage] = Depends(get_feature_storage)
+):
+    """Export presentation to markdown format."""
+    try:
+        # Determine format type
+        format_mapping = {
+            "standard": MarkdownFormat.STANDARD,
+            "github": MarkdownFormat.GITHUB,
+            "reveal_js": MarkdownFormat.REVEAL_JS
+        }
+        format_type = format_mapping.get(request.format_type, MarkdownFormat.STANDARD)
+
+        # If presentation_id is provided, try to retrieve existing presentation
+        presentation = None
+        if request.presentation_id:
+            # In a real implementation, you'd retrieve the presentation from storage
+            # For now, we'll generate a new one based on the request parameters
+            pass
+
+        # Generate presentation from features
+        if not presentation:
+            # Get features
+            if not feature_storage:
+                # Use sample features for demo
+                from tests.fixtures.sample_data import get_all_sample_features
+                all_features = get_all_sample_features()
+
+                if request.domain:
+                    if request.domain == Domain.ALL_DOMAINS:
+                        features = all_features
+                    else:
+                        features = [f for f in all_features if f.domain == request.domain]
+                else:
+                    features = all_features
+
+                # Filter by requested feature IDs if specified
+                if request.feature_ids:
+                    features = [f for f in features if f.id in request.feature_ids]
+            else:
+                try:
+                    if request.feature_ids:
+                        features = [feature_storage.get_by_id(fid) for fid in request.feature_ids]
+                        features = [f for f in features if f is not None]
+                    else:
+                        # Get all features for domain
+                        if request.domain == Domain.ALL_DOMAINS:
+                            features = feature_storage.get_all_features()
+                        else:
+                            features = feature_storage.search_by_domain(request.domain)
+                except Exception as e:
+                    raise HTTPException(status_code=500, detail=f"Failed to retrieve features: {e}")
+
+            if not features:
+                raise HTTPException(status_code=404, detail="No features found")
+
+            # Generate presentation based on domain
+            if request.domain == Domain.ALL_DOMAINS or (features and len(set(f.domain for f in features)) > 1):
+                presentation = unified_presentation_generator.generate_unified_presentation(
+                    features,
+                    request.quarter,
+                    request.audience
+                )
+            else:
+                presentation = presentation_generator.generate_complete_presentation(
+                    features,
+                    request.domain or features[0].domain,
+                    request.quarter,
+                    request.audience
+                )
+
+        # Export to markdown
+        markdown_content = markdown_exporter.export_presentation(
+            presentation,
+            format_type=format_type,
+            include_speaker_notes=request.include_speaker_notes,
+            include_metadata=request.include_metadata,
+            include_business_value=request.include_business_value
+        )
+
+        # Generate filename
+        if request.filename:
+            filename = request.filename
+            if not filename.endswith('.md'):
+                filename += '.md'
+        else:
+            domain_slug = presentation.domain.value if hasattr(presentation.domain, 'value') else str(presentation.domain)
+            filename = f"{domain_slug}-presentation-{request.quarter}-{request.format_type}.md"
+
+        # Save file for download (in production, use proper file storage)
+        temp_path = Path("/tmp") / filename
+        temp_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(temp_path, 'w', encoding='utf-8') as f:
+            f.write(markdown_content)
+
+        download_url = f"/downloads/{filename}"
+
+        return MarkdownExportResponse(
+            download_url=download_url,
+            filename=filename,
+            format_type=request.format_type,
+            character_count=len(markdown_content)
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Markdown export failed: {e}")
+
+
+@app.post("/presentations/markdown/inline", response_model=MarkdownExportResponse)
+async def export_presentation_markdown_inline(
+    request: MarkdownExportRequest,
+    feature_storage: Optional[FeatureStorage] = Depends(get_feature_storage)
+):
+    """Export presentation to markdown format (returns content inline)."""
+    try:
+        # Determine format type
+        format_mapping = {
+            "standard": MarkdownFormat.STANDARD,
+            "github": MarkdownFormat.GITHUB,
+            "reveal_js": MarkdownFormat.REVEAL_JS
+        }
+        format_type = format_mapping.get(request.format_type, MarkdownFormat.STANDARD)
+
+        # Generate presentation from features (same logic as above)
+        if not feature_storage:
+            # Use sample features for demo
+            from tests.fixtures.sample_data import get_all_sample_features
+            all_features = get_all_sample_features()
+
+            if request.domain:
+                if request.domain == Domain.ALL_DOMAINS:
+                    features = all_features
+                else:
+                    features = [f for f in all_features if f.domain == request.domain]
+            else:
+                features = all_features
+
+            # Filter by requested feature IDs if specified
+            if request.feature_ids:
+                features = [f for f in features if f.id in request.feature_ids]
+        else:
+            try:
+                if request.feature_ids:
+                    features = [feature_storage.get_by_id(fid) for fid in request.feature_ids]
+                    features = [f for f in features if f is not None]
+                else:
+                    # Get all features for domain
+                    if request.domain == Domain.ALL_DOMAINS:
+                        features = feature_storage.get_all_features()
+                    else:
+                        features = feature_storage.search_by_domain(request.domain)
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Failed to retrieve features: {e}")
+
+        if not features:
+            raise HTTPException(status_code=404, detail="No features found")
+
+        # Generate presentation based on domain
+        if request.domain == Domain.ALL_DOMAINS or (features and len(set(f.domain for f in features)) > 1):
+            presentation = unified_presentation_generator.generate_unified_presentation(
+                features,
+                request.quarter,
+                request.audience
+            )
+        else:
+            presentation = presentation_generator.generate_complete_presentation(
+                features,
+                request.domain or features[0].domain,
+                request.quarter,
+                request.audience
+            )
+
+        # Export to markdown
+        markdown_content = markdown_exporter.export_presentation(
+            presentation,
+            format_type=format_type,
+            include_speaker_notes=request.include_speaker_notes,
+            include_metadata=request.include_metadata,
+            include_business_value=request.include_business_value
+        )
+
+        # Generate filename for reference
+        domain_slug = presentation.domain.value if hasattr(presentation.domain, 'value') else str(presentation.domain)
+        filename = f"{domain_slug}-presentation-{request.quarter}-{request.format_type}.md"
+
+        return MarkdownExportResponse(
+            content=markdown_content,
+            filename=filename,
+            format_type=request.format_type,
+            character_count=len(markdown_content)
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Markdown export failed: {e}")
+
+
+@app.post("/labs/markdown/export", response_model=LabMarkdownExportResponse)
+async def export_lab_markdown(
+    request: LabMarkdownExportRequest,
+    feature_storage: Optional[FeatureStorage] = Depends(get_feature_storage)
+):
+    """Export lab instructions to markdown format."""
+    try:
+        # Get features
+        if not feature_storage:
+            # Use sample features for demo
+            from tests.fixtures.sample_data import get_all_sample_features
+            all_features = get_all_sample_features()
+            features = [f for f in all_features if f.id in request.feature_ids]
+        else:
+            try:
+                features = [feature_storage.get_by_id(fid) for fid in request.feature_ids]
+                features = [f for f in features if f is not None]
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Failed to retrieve features: {e}")
+
+        if not features:
+            raise HTTPException(status_code=404, detail="No features found")
+
+        # Generate lab instructions for each feature
+        lab_instructions = []
+        for feature in features:
+            lab_instruction = content_generator.generate_lab_instructions(feature)
+            lab_instructions.append(lab_instruction)
+
+        # Export to markdown
+        if len(lab_instructions) == 1:
+            # Single lab export
+            markdown_content = instruqt_exporter.export_lab_to_markdown(
+                lab_instructions[0],
+                format_type=request.format_type,
+                include_metadata=request.include_metadata
+            )
+            filename = f"{features[0].name.lower().replace(' ', '-')}-lab-{request.format_type}.md"
+        else:
+            # Multiple labs export
+            markdown_content = instruqt_exporter.export_multiple_labs_to_markdown(
+                lab_instructions,
+                track_title=request.track_title,
+                format_type=request.format_type,
+                include_metadata=request.include_metadata
+            )
+            filename = f"{request.track_title.lower().replace(' ', '-')}-{request.format_type}.md"
+
+        # Override filename if provided
+        if request.filename:
+            filename = request.filename
+            if not filename.endswith('.md'):
+                filename += '.md'
+
+        # Handle export format
+        if request.export_format == "file":
+            # Save file for download
+            temp_path = Path("/tmp") / filename
+            temp_path.parent.mkdir(parents=True, exist_ok=True)
+
+            with open(temp_path, 'w', encoding='utf-8') as f:
+                f.write(markdown_content)
+
+            download_url = f"/downloads/{filename}"
+
+            return LabMarkdownExportResponse(
+                download_url=download_url,
+                filename=filename,
+                format_type=request.format_type,
+                character_count=len(markdown_content),
+                lab_count=len(lab_instructions)
+            )
+        else:
+            # Inline export
+            return LabMarkdownExportResponse(
+                content=markdown_content,
+                filename=filename,
+                format_type=request.format_type,
+                character_count=len(markdown_content),
+                lab_count=len(lab_instructions)
+            )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lab markdown export failed: {e}")
+
+
+@app.post("/labs/markdown/single", response_model=LabMarkdownExportResponse)
+async def export_single_lab_markdown(
+    request: LabMarkdownExportRequest,
+    feature_storage: Optional[FeatureStorage] = Depends(get_feature_storage)
+):
+    """Export a single lab instruction to markdown format."""
+    try:
+        if len(request.feature_ids) != 1:
+            raise HTTPException(status_code=400, detail="Single lab export requires exactly one feature ID")
+
+        # Get single feature
+        if not feature_storage:
+            # Use sample features for demo
+            from tests.fixtures.sample_data import get_all_sample_features
+            all_features = get_all_sample_features()
+            features = [f for f in all_features if f.id == request.feature_ids[0]]
+        else:
+            try:
+                feature = feature_storage.get_by_id(request.feature_ids[0])
+                features = [feature] if feature else []
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Failed to retrieve feature: {e}")
+
+        if not features:
+            raise HTTPException(status_code=404, detail="Feature not found")
+
+        feature = features[0]
+
+        # Generate lab instruction
+        lab_instruction = content_generator.generate_lab_instructions(feature)
+
+        # Export to markdown
+        markdown_content = instruqt_exporter.export_lab_to_markdown(
+            lab_instruction,
+            format_type=request.format_type,
+            include_metadata=request.include_metadata
+        )
+
+        # Generate filename
+        filename = f"{feature.name.lower().replace(' ', '-')}-lab-{request.format_type}.md"
+        if request.filename:
+            filename = request.filename
+            if not filename.endswith('.md'):
+                filename += '.md'
+
+        # Handle export format
+        if request.export_format == "file":
+            # Save file for download
+            temp_path = Path("/tmp") / filename
+            temp_path.parent.mkdir(parents=True, exist_ok=True)
+
+            with open(temp_path, 'w', encoding='utf-8') as f:
+                f.write(markdown_content)
+
+            download_url = f"/downloads/{filename}"
+
+            return LabMarkdownExportResponse(
+                download_url=download_url,
+                filename=filename,
+                format_type=request.format_type,
+                character_count=len(markdown_content),
+                lab_count=1
+            )
+        else:
+            # Inline export
+            return LabMarkdownExportResponse(
+                content=markdown_content,
+                filename=filename,
+                format_type=request.format_type,
+                character_count=len(markdown_content),
+                lab_count=1
+            )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Single lab markdown export failed: {e}")
 
 
 @app.post("/instruqt/export", response_model=InstruqtExportResponse)

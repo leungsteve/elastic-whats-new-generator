@@ -504,3 +504,205 @@ systemctl enable kibana
 echo "Track setup complete!"
 exit 0
 """
+
+    def export_lab_to_markdown(
+        self,
+        lab_instruction: LabInstruction,
+        format_type: str = "standard",
+        include_metadata: bool = True
+    ) -> str:
+        """
+        Export lab instruction to markdown format.
+
+        Args:
+            lab_instruction: The lab instruction to export
+            format_type: Markdown format ("standard", "github", "instruqt")
+            include_metadata: Whether to include lab metadata
+
+        Returns:
+            Markdown content as string
+        """
+        if format_type == "instruqt":
+            return self._format_assignment(lab_instruction)
+        elif format_type == "github":
+            return self._export_github_markdown(lab_instruction, include_metadata)
+        else:
+            return self._export_standard_markdown(lab_instruction, include_metadata)
+
+    def export_multiple_labs_to_markdown(
+        self,
+        lab_instructions: List[LabInstruction],
+        track_title: str = "Elastic Workshop",
+        format_type: str = "standard",
+        include_metadata: bool = True
+    ) -> str:
+        """
+        Export multiple lab instructions to a combined markdown document.
+
+        Args:
+            lab_instructions: List of lab instructions to export
+            track_title: Title for the combined workshop
+            format_type: Markdown format ("standard", "github", "instruqt")
+            include_metadata: Whether to include lab metadata
+
+        Returns:
+            Combined markdown content as string
+        """
+        markdown_parts = []
+
+        # Title and overview
+        markdown_parts.append(f"# {track_title}\n")
+
+        if include_metadata:
+            total_time = sum(lab.estimated_time or 0 for lab in lab_instructions)
+            markdown_parts.append(f"**Total Labs:** {len(lab_instructions)}")
+            markdown_parts.append(f"**Total Time:** {total_time} minutes")
+            markdown_parts.append(f"**Format:** {format_type}\n")
+
+        # Table of contents
+        markdown_parts.append("## Table of Contents\n")
+        for i, lab in enumerate(lab_instructions, 1):
+            lab_anchor = lab.title.lower().replace(' ', '-').replace(':', '')
+            markdown_parts.append(f"{i}. [{lab.title}](#lab-{i}-{lab_anchor})")
+        markdown_parts.append("")
+
+        # Individual labs
+        for i, lab in enumerate(lab_instructions, 1):
+            lab_markdown = self._export_lab_with_number(lab, i, format_type, include_metadata)
+            markdown_parts.append(lab_markdown)
+
+            # Add separator between labs (except for last one)
+            if i < len(lab_instructions):
+                markdown_parts.append("---\n")
+
+        return "\n".join(markdown_parts)
+
+    def export_lab_to_markdown_file(
+        self,
+        lab_instruction: LabInstruction,
+        output_path: Path,
+        format_type: str = "standard",
+        include_metadata: bool = True
+    ) -> Path:
+        """
+        Export lab instruction to markdown file.
+
+        Args:
+            lab_instruction: The lab instruction to export
+            output_path: Path where the markdown file should be saved
+            format_type: Markdown format ("standard", "github", "instruqt")
+            include_metadata: Whether to include lab metadata
+
+        Returns:
+            Path to the created file
+        """
+        markdown_content = self.export_lab_to_markdown(
+            lab_instruction,
+            format_type,
+            include_metadata
+        )
+
+        # Ensure directory exists
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Write to file
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write(markdown_content)
+
+        return output_path
+
+    def _export_standard_markdown(self, lab_instruction: LabInstruction, include_metadata: bool) -> str:
+        """Export lab instruction to standard markdown format."""
+        parts = []
+
+        # Title
+        parts.append(f"# {lab_instruction.title}\n")
+
+        # Metadata
+        if include_metadata:
+            parts.append(f"**Estimated Time:** {lab_instruction.estimated_time or 'N/A'} minutes")
+            parts.append(f"**Difficulty:** {lab_instruction.difficulty or 'intermediate'}\n")
+
+        # Objective
+        parts.append(f"## Objective\n")
+        parts.append(f"{lab_instruction.objective}\n")
+
+        # Scenario
+        parts.append(f"## Scenario\n")
+        parts.append(f"{lab_instruction.scenario}\n")
+
+        # Setup
+        parts.append(f"## Setup\n")
+        parts.append(f"{lab_instruction.setup_instructions}\n")
+
+        # Steps
+        parts.append(f"## Instructions\n")
+        for i, step in enumerate(lab_instruction.steps, 1):
+            parts.append(f"### Step {i}\n")
+            parts.append(f"{step}\n")
+
+        # Validation
+        parts.append(f"## Validation\n")
+        parts.append(f"{lab_instruction.validation}\n")
+
+        return "\n".join(parts)
+
+    def _export_github_markdown(self, lab_instruction: LabInstruction, include_metadata: bool) -> str:
+        """Export lab instruction to GitHub flavored markdown format."""
+        parts = []
+
+        # Title
+        parts.append(f"# {lab_instruction.title}\n")
+
+        # Metadata with badges
+        if include_metadata:
+            difficulty = lab_instruction.difficulty or 'intermediate'
+            time = lab_instruction.estimated_time or 30
+            parts.append(f"![Difficulty](https://img.shields.io/badge/difficulty-{difficulty}-blue)")
+            parts.append(f"![Time](https://img.shields.io/badge/time-{time}min-green)\n")
+
+        # Objective
+        parts.append(f"## 🎯 Objective\n")
+        parts.append(f"{lab_instruction.objective}\n")
+
+        # Scenario
+        parts.append(f"## 📋 Scenario\n")
+        parts.append(f"{lab_instruction.scenario}\n")
+
+        # Setup
+        parts.append(f"## ⚙️ Setup\n")
+        parts.append(f"{lab_instruction.setup_instructions}\n")
+
+        # Steps with task list formatting
+        parts.append(f"## 📝 Instructions\n")
+        for i, step in enumerate(lab_instruction.steps, 1):
+            parts.append(f"### Step {i}\n")
+            parts.append(f"- [ ] {step}\n")
+
+        # Validation
+        parts.append(f"## ✅ Validation\n")
+        parts.append(f"{lab_instruction.validation}\n")
+
+        return "\n".join(parts)
+
+    def _export_lab_with_number(
+        self,
+        lab_instruction: LabInstruction,
+        lab_number: int,
+        format_type: str,
+        include_metadata: bool
+    ) -> str:
+        """Export lab instruction with lab number prefix."""
+        if format_type == "github":
+            content = self._export_github_markdown(lab_instruction, include_metadata)
+        elif format_type == "instruqt":
+            content = self._format_assignment(lab_instruction)
+        else:
+            content = self._export_standard_markdown(lab_instruction, include_metadata)
+
+        # Replace title with numbered version
+        lines = content.split('\n')
+        if lines and lines[0].startswith('# '):
+            lines[0] = f"# Lab {lab_number}: {lab_instruction.title}"
+
+        return '\n'.join(lines)
