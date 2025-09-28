@@ -7,6 +7,7 @@ classified features and their themes.
 
 from typing import List, Optional
 from src.core.models import Feature, Theme, SlideContent, LabInstruction
+from src.core.config import config_loader
 
 
 class ContentGenerator:
@@ -14,6 +15,7 @@ class ContentGenerator:
 
     def __init__(self):
         """Initialize the content generator."""
+        self.config_loader = config_loader
         self._theme_taglines = {
             Theme.SIMPLIFY: "Do more with less",
             Theme.OPTIMIZE: "Do it faster",
@@ -92,6 +94,17 @@ class ContentGenerator:
 
         validation = f"Verify that {feature.name} is working by checking the improvements in {theme.value} metrics"
 
+        # Get lab template configuration for difficulty determination
+        try:
+            # Determine difficulty based on feature complexity
+            difficulty = self._determine_lab_difficulty(feature, theme)
+            lab_template = self.config_loader.get_lab_template(difficulty)
+            estimated_time = lab_template.estimated_time
+        except:
+            # Fallback to default values
+            difficulty = "intermediate"
+            estimated_time = 30
+
         return LabInstruction(
             title=title,
             objective=objective,
@@ -99,8 +112,8 @@ class ContentGenerator:
             setup_instructions=setup_instructions,
             steps=steps,
             validation=validation,
-            estimated_time=30,
-            difficulty="intermediate"
+            estimated_time=estimated_time,
+            difficulty=difficulty
         )
 
     def _generate_business_value(self, benefits: List[str], theme: Theme) -> str:
@@ -184,3 +197,20 @@ class ContentGenerator:
         ]
 
         return steps
+
+    def _determine_lab_difficulty(self, feature: Feature, theme: Theme) -> str:
+        """Determine lab difficulty based on feature and theme complexity."""
+        # AI features are typically more advanced
+        if theme == Theme.AI_INNOVATION:
+            return "advanced"
+
+        # Features with many benefits are more complex
+        if feature.benefits and len(feature.benefits) > 3:
+            return "intermediate"
+
+        # Simple features or optimization-focused are beginner-friendly
+        if theme == Theme.SIMPLIFY or len(feature.description) < 100:
+            return "beginner"
+
+        # Default to intermediate
+        return "intermediate"

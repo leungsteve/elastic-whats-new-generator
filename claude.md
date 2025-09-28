@@ -10,39 +10,35 @@
 - **Modular Architecture**: Separate concerns into focused components
 - **Configuration-Driven**: YAML/JSON configs for reusability across domains
 - **AI-First**: Leverage Claude and Elastic MCP for content generation
-- **Observable by Design**: Full OpenTelemetry instrumentation for self-monitoring
 
 ## Development Scope Constraints
 **Current Phase**: MVP Development Only
 **Future Enhancements**: Documented in docs/future-enhancements.md
-**Do NOT implement**: Feedback loops, content governance, multi-modal generation until explicitly requested
+**Do NOT implement**: OpenTelemetry instrumentation, feedback loops, content governance, multi-modal generation until explicitly requested
 
 ## Current Sprint Focus
 - Core feature classification and content generation
-- Basic presentation and lab creation
-- OpenTelemetry instrumentation
+- Complete presentation and lab creation
 - Multi-domain support
+- Configuration system for domains
 
 ## Code Preferences
 ```python
 # Preferred patterns
-- FastAPI for REST endpoints with OpenTelemetry middleware
+- FastAPI for REST endpoints
 - Pydantic for data validation
 - pytest for testing
 - asyncio for concurrent operations
 - Type hints throughout
 - Dataclasses/Pydantic models for data structures
-- OpenTelemetry for logs, metrics, traces
-- Structured logging with correlation IDs
+- Structured logging for debugging
 ```
 
-## Observability Requirements
-- **OpenTelemetry Integration**: Instrument all components
-- **Telemetry Destination**: Send to Elastic cluster for self-monitoring
-- **Trace Everything**: AI interactions, web scraping, content generation
-- **Metrics Collection**: Performance, success rates, generation times
-- **Structured Logging**: JSON format with correlation IDs
-- **Error Tracking**: Detailed error context and stack traces
+## Quality Requirements
+- **Error Handling**: Graceful degradation and detailed error messages
+- **Testing**: Comprehensive unit and integration test coverage
+- **Documentation**: Clear API documentation and usage examples
+- **Performance**: Efficient content generation and storage operations
 
 ## Context Management
 - Use specialized agents for different components

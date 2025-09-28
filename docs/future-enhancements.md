@@ -12,7 +12,17 @@
 **Status**: Future consideration - do not implement yet  
 **Priority**: High (post-MVP)
 
-### 3. Multi-Modal Content Generation
+### 3. OpenTelemetry Instrumentation & Observability
+**Description**: Full OpenTelemetry instrumentation for self-monitoring
+- Traces for AI interactions, web scraping, content generation workflows
+- Metrics for generation times, success rates, feature classification accuracy
+- Structured JSON logs with correlation IDs and error context
+- Send all telemetry to Elastic cluster for self-monitoring and dogfooding
+- Monitor application performance, AI tool usage costs, content quality over time
+**Status**: Future consideration - do not implement yet
+**Priority**: High (post-MVP)
+
+### 4. Multi-Modal Content Generation
 [Detailed description]
 **Status**: Future consideration - do not implement yet
 **Priority**: Medium (future enhancement)

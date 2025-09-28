@@ -1,0 +1,320 @@
+# Domain Configuration for Elastic What's New Generator
+# This file defines domain-specific personas, challenges, and content templates
+
+domains:
+  search:
+    display_name: "Search"
+    description: "Enterprise search and information retrieval solutions"
+
+    personas:
+      - name: "developer"
+        title: "Application Developer"
+        pain_points:
+          - "Poor search relevance hurts user experience"
+          - "Complex search implementation and tuning"
+          - "Scaling search infrastructure is expensive"
+        goals:
+          - "Deliver Google-quality search experience"
+          - "Reduce implementation complexity"
+          - "Optimize search performance and costs"
+
+      - name: "architect"
+        title: "Solutions Architect"
+        pain_points:
+          - "Managing multiple search technologies"
+          - "Ensuring search security and compliance"
+          - "Planning for search infrastructure scaling"
+        goals:
+          - "Standardize on unified search platform"
+          - "Reduce operational complexity"
+          - "Enable enterprise-scale search capabilities"
+
+      - name: "product_manager"
+        title: "Product Manager"
+        pain_points:
+          - "Users can't find what they're looking for"
+          - "Search analytics are limited"
+          - "Time-to-market for search features is slow"
+        goals:
+          - "Improve user engagement and satisfaction"
+          - "Get actionable search insights"
+          - "Ship search features faster"
+
+    common_challenges:
+      - relevance
+      - performance
+      - cost
+      - complexity
+      - scalability
+
+    sample_data_types:
+      - name: "ecommerce"
+        description: "Product catalog and transaction data"
+        use_cases: ["product search", "recommendation engines", "inventory management"]
+      - name: "documents"
+        description: "Enterprise document repositories"
+        use_cases: ["document search", "knowledge management", "compliance"]
+      - name: "logs"
+        description: "Application and system logs"
+        use_cases: ["log analysis", "troubleshooting", "security monitoring"]
+
+    competitive_advantages:
+      - "10x faster queries with advanced vector search"
+      - "95% cost reduction with intelligent data tiering"
+      - "Sub-second search across billions of documents"
+
+  observability:
+    display_name: "Observability"
+    description: "Application performance monitoring and system observability"
+
+    personas:
+      - name: "sre"
+        title: "Site Reliability Engineer"
+        pain_points:
+          - "Alert fatigue from too many false positives"
+          - "Mean time to resolution keeps increasing"
+          - "Difficulty correlating issues across services"
+        goals:
+          - "Reduce MTTR by 75%"
+          - "Improve service reliability"
+          - "Automate incident response"
+
+      - name: "devops_engineer"
+        title: "DevOps Engineer"
+        pain_points:
+          - "Monitoring tools are siloed and expensive"
+          - "Complex deployment and configuration"
+          - "Limited visibility into application performance"
+        goals:
+          - "Unified monitoring across stack"
+          - "Reduce monitoring costs"
+          - "Simplify operations workflow"
+
+      - name: "platform_engineer"
+        title: "Platform Engineer"
+        pain_points:
+          - "Managing multiple monitoring vendors"
+          - "Scaling monitoring infrastructure"
+          - "Ensuring monitoring compliance and security"
+        goals:
+          - "Standardize on unified observability platform"
+          - "Enable self-service monitoring"
+          - "Reduce operational overhead"
+
+    common_challenges:
+      - mttr
+      - monitoring_cost
+      - alert_fatigue
+      - data_silos
+      - complexity
+
+    sample_data_types:
+      - name: "metrics"
+        description: "System and application performance metrics"
+        use_cases: ["performance monitoring", "capacity planning", "alerting"]
+      - name: "logs"
+        description: "Application and infrastructure logs"
+        use_cases: ["troubleshooting", "audit trails", "error tracking"]
+      - name: "traces"
+        description: "Distributed tracing data"
+        use_cases: ["request tracking", "performance analysis", "dependency mapping"]
+
+    competitive_advantages:
+      - "75% faster incident resolution with AI-powered root cause analysis"
+      - "50% reduction in monitoring costs through intelligent sampling"
+      - "Real-time observability at petabyte scale"
+
+  security:
+    display_name: "Security"
+    description: "Security information and event management (SIEM) and security analytics"
+
+    personas:
+      - name: "security_analyst"
+        title: "Security Analyst"
+        pain_points:
+          - "Manual threat hunting is too slow"
+          - "Too many false positive alerts"
+          - "Difficulty correlating security events"
+        goals:
+          - "Detect threats in real-time"
+          - "Reduce investigation time"
+          - "Improve threat detection accuracy"
+
+      - name: "ciso"
+        title: "Chief Information Security Officer"
+        pain_points:
+          - "Limited visibility into security posture"
+          - "Compliance reporting takes weeks"
+          - "Security tools are fragmented"
+        goals:
+          - "Comprehensive security visibility"
+          - "Automated compliance reporting"
+          - "Unified security operations platform"
+
+      - name: "incident_responder"
+        title: "Incident Response Specialist"
+        pain_points:
+          - "Slow data correlation during incidents"
+          - "Limited historical context"
+          - "Manual evidence collection"
+        goals:
+          - "Faster incident response"
+          - "Complete incident timeline visibility"
+          - "Automated forensic data collection"
+
+    common_challenges:
+      - threat_detection
+      - compliance
+      - investigation_time
+      - false_positives
+      - data_correlation
+
+    sample_data_types:
+      - name: "security_events"
+        description: "Security logs and event data"
+        use_cases: ["threat detection", "incident response", "forensics"]
+      - name: "threat_intel"
+        description: "Threat intelligence feeds"
+        use_cases: ["threat hunting", "attribution", "prevention"]
+      - name: "audit_logs"
+        description: "System and application audit trails"
+        use_cases: ["compliance", "forensics", "access monitoring"]
+
+    competitive_advantages:
+      - "AI-powered threat detection with 99.9% accuracy"
+      - "90% faster incident response with automated playbooks"
+      - "Real-time security analytics across all data sources"
+
+  all_domains:
+    display_name: "All Domains"
+    description: "Unified Elastic platform across Search, Observability, and Security"
+
+    personas:
+      - name: "platform_architect"
+        title: "Platform Architect"
+        pain_points:
+          - "Managing dozens of point solutions"
+          - "Data silos prevent unified insights"
+          - "Complex vendor relationships"
+        goals:
+          - "Unified data platform"
+          - "Single source of truth"
+          - "Reduced operational complexity"
+
+      - name: "cto"
+        title: "Chief Technology Officer"
+        pain_points:
+          - "High total cost of ownership"
+          - "Engineering teams spend time on tools vs innovation"
+          - "Limited cross-domain visibility"
+        goals:
+          - "Platform consolidation"
+          - "Focus engineering on business value"
+          - "Data-driven decision making"
+
+      - name: "vp_engineering"
+        title: "VP of Engineering"
+        pain_points:
+          - "Operational overhead slows feature delivery"
+          - "Multiple tool training and onboarding"
+          - "Inconsistent developer experience"
+        goals:
+          - "Accelerate feature velocity"
+          - "Standardize developer tooling"
+          - "Improve engineering productivity"
+
+    common_challenges:
+      - platform_consolidation
+      - operational_efficiency
+      - ai_adoption
+      - data_silos
+      - vendor_sprawl
+
+    sample_data_types:
+      - name: "multi_domain_scenarios"
+        description: "Cross-domain data and workflows"
+        use_cases: ["unified analytics", "cross-domain correlation", "platform insights"]
+      - name: "cross_functional_workflows"
+        description: "End-to-end business processes"
+        use_cases: ["incident response", "product analytics", "compliance reporting"]
+
+    cross_domain_scenarios:
+      - name: "search_security_threat_hunting"
+        description: "Use search capabilities to hunt for security threats"
+        domains: ["search", "security"]
+        value_prop: "10x faster threat hunting with advanced search"
+
+      - name: "observability_search_performance"
+        description: "Monitor search application performance"
+        domains: ["observability", "search"]
+        value_prop: "Complete visibility into search user experience"
+
+      - name: "security_observability_incident_response"
+        description: "Correlate security and operational data during incidents"
+        domains: ["security", "observability"]
+        value_prop: "Faster incident resolution with unified context"
+
+    competitive_advantages:
+      - "3x better ROI vs point solutions"
+      - "Single platform replaces 5+ vendors"
+      - "Cross-domain insights impossible with separate tools"
+
+# Presentation Templates
+presentation_templates:
+  opening_hook:
+    structure:
+      - challenge_statement
+      - pain_points
+      - opportunity_hook
+
+  theme_deep_dive:
+    structure:
+      - theme_introduction
+      - feature_highlights
+      - key_benefits
+      - business_impact
+
+  business_case:
+    structure:
+      - quantified_benefits
+      - financial_impact
+      - implementation_timeline
+      - success_metrics
+
+# Lab Templates
+lab_templates:
+  difficulty_levels:
+    beginner:
+      estimated_time: 15
+      prerequisites: ["Basic understanding of Elasticsearch"]
+      complexity: "Simple configuration and basic queries"
+
+    intermediate:
+      estimated_time: 30
+      prerequisites: ["Elasticsearch experience", "Basic REST API knowledge"]
+      complexity: "Multi-step configuration with custom queries"
+
+    advanced:
+      estimated_time: 60
+      prerequisites: ["Advanced Elasticsearch", "Programming experience"]
+      complexity: "Complex scenarios with custom development"
+
+# Content Generation Settings
+content_settings:
+  slide_length:
+    short: 50    # words
+    medium: 100  # words
+    long: 200    # words
+
+  audience_styles:
+    business:
+      focus: "ROI and business outcomes"
+      technical_depth: "minimal"
+
+    technical:
+      focus: "Implementation details and capabilities"
+      technical_depth: "detailed"
+
+    mixed:
+      focus: "Balanced business value and technical overview"
+      technical_depth: "moderate"

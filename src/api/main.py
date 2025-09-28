@@ -13,6 +13,7 @@ import uvicorn
 from src.core.models import Feature, Domain, Theme, SlideContent, LabInstruction
 from src.core.classifier import FeatureClassifier
 from src.core.generators.content_generator import ContentGenerator
+from src.core.generators.presentation_generator import PresentationGenerator
 from src.integrations.elasticsearch import FeatureStorage
 from src.integrations.web_scraper import WebScraper
 from elasticsearch import Elasticsearch
@@ -27,6 +28,7 @@ app = FastAPI(
 # Global instances (in production, use dependency injection)
 classifier = FeatureClassifier()
 content_generator = ContentGenerator()
+presentation_generator = PresentationGenerator(content_generator)
 web_scraper = WebScraper()
 
 # Dependency for Elasticsearch (in production, configure with settings)
@@ -67,6 +69,12 @@ class ContentGenerationRequest(BaseModel):
     feature_ids: List[str]
     domain: Domain
     content_type: str  # "presentation" or "lab"
+    audience: str = "mixed"
+
+class PresentationGenerationRequest(BaseModel):
+    feature_ids: List[str]
+    domain: Domain
+    quarter: str = "Q1-2024"
     audience: str = "mixed"
 
 class PresentationResponse(BaseModel):
@@ -325,6 +333,84 @@ async def generate_labs(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lab generation failed: {e}")
+
+
+@app.post("/presentations/complete")
+async def generate_complete_presentation(
+    request: PresentationGenerationRequest,
+    feature_storage: Optional[FeatureStorage] = Depends(get_feature_storage)
+):
+    """Generate a complete presentation following the 7-slide framework."""
+    if not feature_storage:
+        # Use sample features for demo
+        from tests.fixtures.sample_data import get_all_sample_features
+        all_features = get_all_sample_features()
+
+        if request.domain == Domain.ALL_DOMAINS:
+            features = all_features
+        else:
+            features = [f for f in all_features if f.domain == request.domain]
+
+        # Filter by requested feature IDs if specified
+        if request.feature_ids:
+            features = [f for f in features if f.id in request.feature_ids]
+    else:
+        try:
+            if request.feature_ids:
+                features = [feature_storage.get_by_id(fid) for fid in request.feature_ids]
+                features = [f for f in features if f is not None]
+            else:
+                # Get all features for domain
+                if request.domain == Domain.ALL_DOMAINS:
+                    features = feature_storage.get_all_features()
+                else:
+                    features = feature_storage.search_by_domain(request.domain)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to retrieve features: {e}")
+
+    if not features:
+        raise HTTPException(status_code=404, detail="No features found")
+
+    try:
+        presentation = presentation_generator.generate_complete_presentation(
+            features=features,
+            domain=request.domain,
+            quarter=request.quarter,
+            audience=request.audience
+        )
+
+        # Convert to API response format
+        slides_data = []
+        for slide in presentation.slides:
+            slides_data.append({
+                "title": slide.title,
+                "subtitle": slide.subtitle,
+                "content": slide.content,
+                "business_value": slide.business_value,
+                "theme": slide.theme.value,
+                "speaker_notes": slide.speaker_notes
+            })
+
+        return {
+            "presentation": {
+                "id": presentation.id,
+                "title": presentation.title,
+                "domain": presentation.domain.value,
+                "quarter": presentation.quarter,
+                "slides": slides_data,
+                "featured_themes": [theme.value for theme in presentation.featured_themes],
+                "feature_ids": presentation.feature_ids,
+                "generated_at": presentation.generated_at.isoformat()
+            },
+            "metadata": {
+                "slide_count": len(slides_data),
+                "feature_count": len(features),
+                "audience": request.audience,
+                "framework": "7-slide Elastic presentation framework"
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Presentation generation failed: {e}")
 
 
 # Development server runner
