@@ -1,10 +1,10 @@
 # Elastic What's New Generator
 
-Automated presentation and Instruqt lab generation for quarterly Elastic feature releases across Search, Observability, Security, and unified platform domains.
+**Amplify Elastic's Innovation Story** - Automated presentation and Instruqt lab generation for quarterly Elastic feature releases across Search, Observability, Security, and the unified Elastic platform.
 
 ## 🎯 Purpose
 
-Transform quarterly Elastic feature releases into compelling presentations and hands-on labs that drive sales pipeline generation. Generate domain-specific or unified platform content that demonstrates clear business value and competitive advantages.
+**Drive Elastic Sales and Adoption** - Transform quarterly Elastic feature releases into compelling, sales-ready presentations and hands-on labs that showcase Elastic's competitive advantages and drive pipeline generation. Generate domain-specific content highlighting Elastic Search, Elastic Observability, Elastic Security, or unified Elastic platform capabilities that demonstrate clear business value and technical differentiation.
 
 ## 🏗️ Architecture
 
@@ -30,13 +30,13 @@ Stage 2: Content Generation (Presentations & Labs)
 └─────────┘    └─────────┘    └─────────────────────────┘
 ```
 
-**Benefits:**
-- ✅ Extract once, generate many presentations and labs
-- ✅ 90%+ reduction in LLM API calls through caching
-- ✅ Fast content generation (seconds vs. minutes)
-- ✅ Consistent quality across all outputs
-- ✅ Story-driven labs with realistic scenarios and datasets
-- ✅ Progressive challenges with complete solutions
+**Benefits for Elastic Enablement:**
+- ✅ **Showcase Elastic Innovation**: Extract once, generate unlimited Elastic-focused presentations and labs
+- ✅ **Efficient Content Creation**: 90%+ reduction in effort through intelligent caching of Elastic documentation
+- ✅ **Rapid Elastic Enablement**: Generate sales-ready Elastic content in seconds vs. minutes
+- ✅ **Consistent Elastic Messaging**: Ensure quality and accuracy across all Elastic platform outputs
+- ✅ **Real-World Elastic Use Cases**: Story-driven labs demonstrating Elastic's business value
+- ✅ **Hands-On Elastic Training**: Progressive challenges showcasing Elastic capabilities
 
 ### Multi-Provider LLM Support
 - **OpenAI** (gpt-4o, gpt-4o-mini) - Default, cost-effective
@@ -45,25 +45,27 @@ Stage 2: Content Generation (Presentations & Labs)
 - **Proxy Support** - Custom API gateways and Claude Code Max
 - **Auto-Fallback** - Automatic provider selection based on availability
 
-### Multi-Domain Support
-- **Individual Domains**: Search, Observability, Security
-- **Unified Platform**: Cross-domain storytelling and value propositions
-- **Customizable Prompts**: Configure LLM behavior via YAML
+### Elastic Multi-Domain Support
+- **Elastic Search**: Showcase Elastic's search and AI capabilities
+- **Elastic Observability**: Highlight Elastic's monitoring and APM solutions
+- **Elastic Security**: Demonstrate Elastic's SIEM and threat detection
+- **Unified Elastic Platform**: Cross-domain storytelling showing Elastic's complete value proposition
+- **Customizable Messaging**: Configure content generation for different Elastic audiences
 
 ## 🚀 Features
 
 ### Core Capabilities
-- **AI-Powered Feature Classification** into three universal themes:
-  - **Simplify**: "Do more with less"
-  - **Optimize**: "Do it faster"
-  - **AI Innovation**: "Do it with AI"
+- **AI-Powered Elastic Feature Classification** into three compelling value themes:
+  - **Simplify**: Position Elastic as the solution to "Do more with less"
+  - **Optimize**: Showcase how Elastic helps customers "Do it faster"
+  - **AI Innovation**: Highlight Elastic's AI capabilities - "Do it with AI"
 
-- **Advanced Storytelling Framework** 🎭:
-  - **Story Arc Planning**: Multi-position narrative structure (Hook, Build, Climax, Resolution)
-  - **Talk Track Generation**: Comprehensive speaker notes with timing and transitions
-  - **Customer Story Integration**: Real-world success stories with quantified business impact
-  - **Business Value Calculation**: ROI projections and value drivers
-  - **Competitive Positioning**: Differentiation analysis and market positioning
+- **Advanced Storytelling Framework for Elastic** 🎭:
+  - **Story Arc Planning**: Craft compelling narratives that position Elastic as the hero
+  - **Talk Track Generation**: Sales-ready speaker notes that emphasize Elastic's unique value
+  - **Customer Story Integration**: Real-world Elastic success stories with quantified ROI
+  - **Business Value Calculation**: ROI projections demonstrating Elastic's financial impact
+  - **Competitive Positioning**: Clear differentiation showing why prospects should choose Elastic
 
 - **Enhanced User Interface**:
   - **Test Feature Filtering**: Automatic hiding of test features from production UI
@@ -72,34 +74,45 @@ Stage 2: Content Generation (Presentations & Labs)
   - **Cross-Tab Functionality**: Consistent filtering across Features, Presentations, and Labs tabs
   - **Analytics Dashboard**: Real-time LLM usage tracking, cost monitoring, and content history browser
 
-- **Story-Driven Lab Generation** 🧪:
-  - **Realistic Business Scenarios**: Compelling narratives (e.g., "Black Friday retail analysis")
-  - **Multi-Table Datasets**: Related tables with foreign key relationships (customers, orders, products)
-  - **Copy-Paste Ready Commands**: Kibana Dev Tools commands that work immediately
-  - **Progressive Challenges**: 5-7 exercises building from simple to complex
-  - **Complete Solutions**: Full ES|QL commands with explanations and expected outputs
-  - **Configurable Parameters**: Scenario type (e-commerce/observability/security), data size (demo/realistic/large), technical depth
+- **Hands-On Elastic Lab Generation** 🧪:
+  - **Real-World Elastic Use Cases**: Demonstrate Elastic's value through compelling business scenarios
+  - **Elastic-Powered Datasets**: Multi-table datasets showcasing Elastic's data relationships and indexing
+  - **Copy-Paste Ready Elastic Commands**: Kibana Dev Tools commands demonstrating Elastic Query Language (ES|QL)
+  - **Progressive Elastic Challenges**: 5-7 exercises showcasing Elastic capabilities from basics to advanced
+  - **Complete Elastic Solutions**: Full ES|QL demonstrations with Elastic best practices
+  - **Flexible Elastic Scenarios**: E-commerce, observability, or security use cases highlighting Elastic's versatility
 
-- **Multi-Domain Content Generation**:
-  - Domain-specific presentations (Search/Observability/Security)
-  - Unified platform presentations showing cross-domain synergies
-  - Instruqt-compatible lab instructions with narrative flow
-  - Customer journey-based lab scenarios
+- **Elastic Multi-Domain Content Generation**:
+  - **Elastic Search Presentations**: Showcase search, vector search, and AI-powered relevance
+  - **Elastic Observability Presentations**: Highlight logs, metrics, APM, and unified observability
+  - **Elastic Security Presentations**: Demonstrate SIEM, threat detection, and endpoint protection
+  - **Unified Elastic Platform**: Cross-domain storytelling showing the power of Elastic's integrated platform
+  - **Instruqt-Compatible Labs**: Hands-on Elastic training with narrative-driven learning experiences
 
 - **Flexible LLM Integration**:
   - Primary: Claude for high-quality content generation
   - Fallback: OpenAI GPT-4 for reliability
   - Extensible architecture for additional providers
 
-### Output Formats
-- **Presentations**: Markdown slides with advanced storytelling and comprehensive talk tracks
-- **Lab Instructions**: Story-driven Instruqt workshops with:
-  - Multi-table dataset schemas with relationships
-  - Copy-paste ready setup commands (create indices, bulk load data)
-  - Progressive challenges (5-7 exercises)
-  - Complete solutions with ES|QL commands and expected outputs
-- **Customer Stories**: Real-world success stories with business impact metrics
-- **Speaker Notes**: Detailed talk tracks with timing and transition guidance
+### Elastic-Focused Output Formats
+- **Elastic Sales Presentations**: Markdown slides positioning Elastic with:
+  - Advanced storytelling that makes Elastic the hero
+  - Comprehensive talk tracks emphasizing Elastic's competitive advantages
+  - Business value calculations showing Elastic's ROI
+
+- **Elastic Hands-On Labs**: Story-driven Instruqt workshops featuring:
+  - Real-world Elastic implementations and use cases
+  - Copy-paste ready Elastic commands (create indices, bulk load data)
+  - Progressive Elastic challenges (5-7 exercises)
+  - Complete ES|QL solutions demonstrating Elastic's query power
+
+- **Elastic Customer Success Stories**: Real-world examples with:
+  - Quantified business impact from Elastic deployments
+  - ROI metrics and competitive win reasons
+
+- **Elastic Speaker Notes**: Sales-ready talk tracks with:
+  - Timing guidance for Elastic demos
+  - Transition scripts emphasizing Elastic differentiation
 - **Sample Data**: Realistic datasets (50-5000 records) for hands-on exercises
 
 ## 🎯 Advanced Storytelling APIs

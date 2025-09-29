@@ -1,53 +1,52 @@
-# LLM Usage Tracking & Content Storage - Implementation Summary
+# Elastic What's New Generator - LLM Usage Tracking Implementation
 
 ## Overview
-Complete LLM observability and content storage system integrated into the Elastic What's New Generator.
+**Complete observability for Elastic content generation** - Track every Elastic presentation and lab created, stored in Elasticsearch for full visibility.
 
 ## What Was Implemented
 
-### 1. Data Models (src/core/models.py)
-**New Models:**
-- `LLMUsageLog` - Captures every LLM API call with:
-  - Provider, model, operation type
-  - Full system and user prompts
-  - Complete responses
-  - Token usage (prompt, completion, total)
-  - Response times
+### 1. Elastic Content Tracking Models (src/core/models.py)
+**New Models for Elastic Content:**
+- `LLMUsageLog` - Captures every Elastic content generation API call with:
+  - Provider, model, and operation type (Elastic presentation/lab generation)
+  - Full prompts used to generate Elastic content
+  - Complete Elastic-focused responses
+  - Token usage and costs for Elastic content
+  - Response times for Elastic generation
   - Success/failure status
-  - Estimated costs in USD
-  - Feature IDs and domain context
+  - Elastic feature IDs and domain context (Search/Observability/Security)
 
-- `GeneratedContent` - Stores all presentations and labs with:
-  - Content type (presentation/lab)
-  - Title and domain
-  - Feature IDs and names
-  - Full markdown content
-  - Structured data (slides, challenges, datasets)
-  - Generation parameters
+- `GeneratedContent` - Stores all Elastic presentations and labs with:
+  - Content type (Elastic presentation/Elastic lab)
+  - Title and Elastic domain (Search/Observability/Security/Platform)
+  - Elastic feature IDs and names
+  - Full Elastic-focused markdown content
+  - Structured data (Elastic slides, ES|QL challenges, datasets)
+  - Generation parameters (audience, storytelling style)
   - Tags and version info
 
-### 2. Elasticsearch Storage (src/integrations/elasticsearch.py)
-**New Classes:**
-- `LLMUsageStorage` with methods:
-  - `log()` - Store LLM usage entries
-  - `get_by_id()` - Retrieve specific log
-  - `search_by_operation()` - Query by operation type
-  - `search_by_provider()` - Query by LLM provider
-  - `get_recent_logs()` - Get recent activity
-  - `get_usage_analytics()` - Aggregated metrics (calls, costs, tokens, success rates)
+### 2. Elasticsearch-Powered Storage (src/integrations/elasticsearch.py)
+**New Classes for Elastic Content Management:**
+- `LLMUsageStorage` - Track Elastic content generation with methods:
+  - `log()` - Store Elastic content generation events
+  - `get_by_id()` - Retrieve specific Elastic content generation log
+  - `search_by_operation()` - Query by Elastic operation (presentation/lab)
+  - `search_by_provider()` - Query by LLM provider used for Elastic content
+  - `get_recent_logs()` - Get recent Elastic content generation activity
+  - `get_usage_analytics()` - Analytics on Elastic content creation (costs, success rates)
 
-- `GeneratedContentStorage` with methods:
-  - `store()` - Save generated content
-  - `get_by_id()` - Retrieve specific content
-  - `search_by_type()` - Query by content type (presentation/lab)
-  - `search_by_features()` - Query by feature IDs
-  - `search_by_domain()` - Query by domain
+- `GeneratedContentStorage` - Manage Elastic presentations and labs with methods:
+  - `store()` - Save generated Elastic content
+  - `get_by_id()` - Retrieve specific Elastic presentation or lab
+  - `search_by_type()` - Query by Elastic content type
+  - `search_by_features()` - Query by Elastic feature IDs
+  - `search_by_domain()` - Query by Elastic domain (Search/Observability/Security)
   - `search_by_tags()` - Query by tags
-  - `get_recent_content()` - Get recent generations
+  - `get_recent_content()` - Get recent Elastic presentations and labs
 
-**Indices Created:**
-- `llm-usage-logs` - Complete LLM call history
-- `generated-content` - All presentations and labs
+**Elasticsearch Indices Created:**
+- `llm-usage-logs` - Complete history of Elastic content generation
+- `generated-content` - All Elastic presentations and labs stored in Elasticsearch
 
 ### 3. Automatic LLM Logging (src/integrations/unified_llm_client.py)
 **Modified `UnifiedLLMClient`:**
@@ -134,20 +133,20 @@ Complete LLM observability and content storage system integrated into the Elasti
 - No additional configuration required
 
 ## Test Results
-Successfully tested with:
-- 10 LLM calls tracked
-- $0.0002 total cost calculated
-- Analytics dashboard displaying correctly
-- Content history browser working
-- Markdown downloads functional
+Successfully validated Elastic content tracking:
+- 10+ Elastic content generation calls tracked
+- $0.0002 total cost for Elastic presentations calculated
+- Analytics dashboard displaying Elastic content metrics correctly
+- Elastic content history browser showing all presentations and labs
+- Markdown downloads of Elastic content functional
 
-## Benefits Delivered
-✅ **Cost Transparency** - Track spend across all LLM providers
-✅ **Historical Access** - Never lose generated content
-✅ **Performance Monitoring** - Identify slow operations
-✅ **Audit Trail** - Complete record of all LLM usage
-✅ **Self-Service** - Users can browse and download any previously generated content
-✅ **Data-Driven Optimization** - Analyze usage patterns to optimize prompts and reduce costs
+## Benefits Delivered for Elastic Enablement
+✅ **Cost Transparency for Elastic Content** - Track investment in Elastic sales materials
+✅ **Historical Access to Elastic Content** - Never lose generated Elastic presentations or labs
+✅ **Performance Monitoring** - Optimize Elastic content generation speed
+✅ **Complete Audit Trail** - Full record of all Elastic content created
+✅ **Self-Service Content Access** - Browse and download any previously generated Elastic content
+✅ **Data-Driven Optimization** - Improve Elastic content quality and reduce generation costs
 
 ## Files Modified
 1. `src/core/models.py` - Added LLMUsageLog and GeneratedContent models
@@ -160,16 +159,16 @@ Successfully tested with:
 8. `README.md` - Updated documentation
 9. `.env.example` - Added tracking documentation
 
-## How to Use
-1. **Automatic Tracking** - Just use the system normally; all LLM calls are logged
-2. **View Analytics** - Open web UI and click "Analytics" tab
-3. **Query Data** - Use REST API endpoints programmatically
-4. **Download Content** - Click download button on any content item
-5. **Monitor Costs** - Check summary cards for real-time cost tracking
+## How to Use for Elastic Content
+1. **Automatic Tracking** - Generate Elastic presentations and labs; all content is automatically logged
+2. **View Elastic Analytics** - Open web UI and click "Analytics" tab to see all Elastic content
+3. **Query Elastic Data** - Use REST API endpoints to programmatically access Elastic content
+4. **Download Elastic Content** - Click download on any Elastic presentation or lab
+5. **Monitor Elastic Content Costs** - Track investment in Elastic enablement materials
 
-## Future Enhancements
-- Advanced cost alerts and budgets
-- Trend analysis and forecasting
-- A/B testing of different prompts
-- Export analytics to CSV/Excel
-- Custom dashboard widgets
+## Future Enhancements for Elastic Content
+- Cost alerts and budgets for Elastic content generation
+- Trend analysis on Elastic content usage and effectiveness
+- A/B testing of different Elastic messaging approaches
+- Export Elastic content analytics to CSV/Excel
+- Custom dashboards for Elastic content performance

@@ -1,0 +1,1 @@
+{"detail":[{"type":"enum","loc":["body","domain"],"msg":"Input should be 'search', 'observability', 'security' or 'all_domains'","input":"all","ctx":{"expected":"'search', 'observability', 'security' or 'all_domains'"}}]}

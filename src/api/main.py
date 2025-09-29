@@ -302,6 +302,9 @@ class MarkdownExportRequest(BaseModel):
     include_metadata: bool = True
     include_business_value: bool = True
     filename: Optional[str] = None
+    # Storytelling parameters
+    narrative_style: str = "problem_solution"
+    technical_depth: str = "medium"
 
 class MarkdownExportResponse(BaseModel):
     content: Optional[str] = None
@@ -1207,12 +1210,54 @@ async def export_presentation_markdown(
                     request.audience
                 )
             else:
-                presentation = presentation_generator.generate_complete_presentation(
-                    features,
-                    request.domain or features[0].domain,
-                    request.quarter,
-                    request.audience
+                # Check if we should use LLM presentation generation (includes talk tracks)
+                use_llm_generation = (
+                    llm_presentation_generator is not None and
+                    llm_presentation_generator.can_generate_presentation(features)
                 )
+
+                if use_llm_generation:
+                    # Use LLM-powered presentation generation with talk tracks
+                    logger.info("Using LLM-powered presentation generation for markdown export")
+
+                    presentation_dict = llm_presentation_generator.generate_presentation(
+                        features=features,
+                        domain=request.domain or features[0].domain,
+                        audience=request.audience,
+                        narrative_style=request.narrative_style,
+                        technical_depth=request.technical_depth,
+                        slide_count=7,
+                        quarter=request.quarter
+                    )
+
+                    # Convert dict to Presentation object
+                    from src.core.models import Presentation, Slide
+                    slides = []
+                    for slide_dict in presentation_dict.get("slides", []):
+                        slide = Slide(
+                            title=slide_dict.get("title", ""),
+                            content=slide_dict.get("content", []),
+                            speaker_notes=slide_dict.get("speaker_notes", ""),
+                            visual_suggestions=slide_dict.get("visual_suggestions", [])
+                        )
+                        slides.append(slide)
+
+                    presentation = Presentation(
+                        domain=request.domain or features[0].domain,
+                        title=presentation_dict.get("title", ""),
+                        slides=slides,
+                        quarter=request.quarter,
+                        audience=request.audience
+                    )
+                else:
+                    # Fallback to legacy generation
+                    logger.info("Using legacy presentation generation for markdown export")
+                    presentation = presentation_generator.generate_complete_presentation(
+                        features,
+                        request.domain or features[0].domain,
+                        request.quarter,
+                        request.audience
+                    )
 
         # Export to markdown
         markdown_content = markdown_exporter.export_presentation(
@@ -2605,8 +2650,9 @@ async def get_generated_content_markdown(
         if not content:
             raise HTTPException(status_code=404, detail="Generated content not found")
 
-        markdown_content = content.get('markdown_content', '')
-        title = content.get('title', 'Untitled')
+        # content is a GeneratedContent Pydantic model, access attributes directly
+        markdown_content = content.markdown_content or ''
+        title = content.title or 'Untitled'
 
         return {
             "content_id": content_id,

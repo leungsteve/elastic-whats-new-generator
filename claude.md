@@ -1,16 +1,19 @@
 # Claude Code Configuration
 
 ## Project Overview
-**Name**: Elastic What's New Generator  
-**Purpose**: Automated presentation and Instruqt lab generation for quarterly Elastic feature releases  
-**Domains**: Search, Observability, Security, All Domains (unified)  
+**Name**: Elastic What's New Generator
+**Purpose**: Drive Elastic sales and adoption by automating compelling presentation and Instruqt lab generation for quarterly Elastic feature releases
+**Mission**: Showcase Elastic's competitive advantages and generate pipeline through sales-ready content
+**Domains**: Elastic Search, Elastic Observability, Elastic Security, Unified Elastic Platform
 
 ## Development Approach
+- **Elastic-First**: All content emphasizes Elastic's value proposition and competitive differentiation
+- **Sales Enablement**: Generate content that drives Elastic pipeline and adoption
 - **Test-Driven Development (TDD)**: Write tests first, then implement
-- **Modular Architecture**: Separate concerns into focused components
-- **Configuration-Driven**: YAML/JSON configs for reusability across domains
-- **AI-First**: Leverage Claude and Elastic MCP for content generation
-- **Observable by Design**: Full OpenTelemetry instrumentation for self-monitoring
+- **Modular Architecture**: Separate concerns into focused Elastic-specific components
+- **Configuration-Driven**: YAML/JSON configs for reusability across Elastic domains
+- **AI-First**: Leverage Claude and Elastic MCP for Elastic content generation
+- **Observable by Design**: Full OpenTelemetry instrumentation tracking Elastic content creation
 
 ## Architecture Documentation
 - **Data Model**: See `docs/architecture/data-model.md` for Elasticsearch schema, ELSER embeddings, and content research structure
@@ -24,13 +27,13 @@
 **Do NOT implement**: Feedback loops, content governance, multi-modal generation until explicitly requested
 
 ## Current Sprint Focus
-- Core feature classification and content generation
-- Advanced storytelling framework with narrative arcs and talk tracks
-- Customer story research and business impact integration
-- Enhanced UI with comprehensive storytelling controls
-- Test feature filtering and improved user experience
-- OpenTelemetry instrumentation
-- Multi-domain support
+- Elastic feature classification into compelling value themes (Simplify, Optimize, AI Innovation)
+- Advanced storytelling positioning Elastic as the hero
+- Elastic customer success stories with quantified ROI
+- Enhanced UI for generating Elastic sales content
+- Test feature filtering for production-ready Elastic content
+- Full observability of Elastic content generation
+- Multi-domain Elastic platform support (Search, Observability, Security, Unified)
 
 ## Code Preferences
 ```python
@@ -57,20 +60,20 @@
 - Use tools for external data access
 
 ## AI Tool Integration
-- **Elastic MCP**: Documentation lookup, feature validation
-- **Web Search**: Competitive research, additional context
-- **Claude**: Content generation, storytelling
-- **File System**: Template management, output generation
+- **Elastic MCP**: Elastic documentation lookup, Elastic feature validation
+- **Web Search**: Competitive research showing Elastic differentiation
+- **Claude**: Generate Elastic-focused content and storytelling
+- **File System**: Manage Elastic presentation and lab templates
 
-## Project Constraints
-- Must work across Search/Observability/Security domains individually
-- Must support "All Domains" unified presentations
-- Configurable for different audiences (business/technical)
-- Generate both presentations and hands-on labs
-- Integrate with Instruqt platform
-- Maintain brand consistency and technical accuracy
-- Full observability with OpenTelemetry → Elastic
-- Cross-domain storytelling and workshop scenarios
+## Project Constraints - Elastic Focus
+- Must work across Elastic Search, Elastic Observability, and Elastic Security domains individually
+- Must support "Unified Elastic Platform" presentations showing cross-domain value
+- Configurable for different Elastic audiences (business buyers, technical evaluators, developers)
+- Generate both Elastic sales presentations and hands-on Elastic labs
+- Integrate with Instruqt platform for Elastic training
+- Maintain Elastic brand consistency and technical accuracy
+- Full observability with OpenTelemetry → Elasticsearch for tracking Elastic content generation
+- Cross-domain storytelling showcasing the power of the unified Elastic platform
 
 ## Testing Strategy
 - Unit tests for all business logic
@@ -79,33 +82,46 @@
 - Test data generation for realistic scenarios
 - Validation tests for generated content quality
 
-## Output Requirements
-- Markdown slides following presentation framework with advanced storytelling
-- Comprehensive talk tracks and speaker notes for presentations
-- Customer success stories and business impact metrics
-- Instruqt lab instructions with step-by-step guidance and narrative flow
-- Sample data sets for hands-on exercises
-- Configuration files for easy customization
+## Output Requirements - Elastic Content
+- **Elastic Sales Presentations**: Markdown slides positioning Elastic's value with advanced storytelling
+- **Elastic Talk Tracks**: Comprehensive speaker notes emphasizing Elastic's competitive advantages
+- **Elastic Customer Stories**: Real-world Elastic success stories with quantified ROI and business impact
+- **Elastic Hands-On Labs**: Instruqt lab instructions demonstrating Elastic capabilities with narrative flow
+- **Elastic Sample Datasets**: Realistic data for hands-on Elastic exercises and ES|QL challenges
+- **Flexible Configuration**: Easy customization for different Elastic audiences and use cases
 
 ## Recent Enhancements
 
-### Storytelling Framework (Latest)
+### Lab Generation Framework (Latest - 2025-09-29)
+- **Story-Driven Lab Architecture**: LLM-powered lab generation with realistic business scenarios
+- **Multi-Table Datasets**: DatasetTable model with field definitions, relationships, and sample counts
+- **Progressive Challenges**: LabChallenge model with hints, solutions, and expected outputs
+- **Enhanced Data Models**: Extended LabInstruction with dataset_tables, setup_commands, challenges
+- **Copy-Paste Ready Commands**: Generated setup commands work immediately in Kibana Dev Tools
+- **Configurable Generation**: Scenario type, data size, technical depth parameters
+- **Enhanced Markdown Export**: Updated instruqt_exporter to render new lab structure
+
+### Storytelling Framework (Previous)
 - **Story Arc Planning**: Multi-position narrative structure (Hook, Build, Climax, Resolution)
 - **Talk Track Generation**: Comprehensive speaker notes with timing and transitions
 - **Customer Story Integration**: Real-world success stories with quantified business impact
 - **Business Value Calculation**: ROI projections and value drivers
 - **Competitive Positioning**: Differentiation analysis and market positioning
 
-### UI Improvements (Latest)
+### UI Improvements
 - **Test Feature Filtering**: Automatic hiding of test features from production UI
 - **Advanced Storytelling Controls**: Narrative style, talk track detail, technical depth
+- **Lab Generation Controls**: Scenario type, data size, technical depth dropdowns
 - **Enhanced Previews**: Story arc overview, talk track previews, customer story summaries
 - **Cross-Tab Functionality**: Consistent filtering across Features, Presentations, and Labs tabs
 - **Cache Management**: Improved JavaScript loading with version control
 
-### Key Files Updated
-- `web/index.html`: Added comprehensive storytelling form controls (lines 157-203)
-- `web/app.js`: Enhanced presentation/lab generation with storytelling parameters
-- `src/core/storytelling.py`: Complete storytelling framework implementation
-- `src/integrations/customer_story_research.py`: Customer story and business impact research
-- `src/core/models.py`: Extended data models for storytelling components
+### Key Files Updated (Lab Generation)
+- `config/llm_prompts.yaml`: Enhanced lab_generator prompts with multi-feature support
+- `src/core/models.py`: Added DatasetTable, LabChallenge, extended LabInstruction (lines 357-415)
+- `src/integrations/unified_llm_client.py`: Added generate_lab() method (lines 434-524)
+- `src/api/main.py`: Updated /labs/markdown/single to use LLM generation (lines 1336-1410)
+- `src/integrations/instruqt_exporter.py`: Enhanced _export_standard_markdown for new lab format (lines 614-688)
+- `web/index.html`: Added lab scenario options (lines 267-312)
+- `web/app.js`: Pass lab generation parameters to API (lines 1311-1325)
+- `docs/architecture/llm-architecture.md`: Added Lab Generation Architecture section

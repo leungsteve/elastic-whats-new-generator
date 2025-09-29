@@ -1,0 +1,10 @@
+# Core requirements for basic functionality
+fastapi
+uvicorn
+pydantic
+pyyaml
+requests
+beautifulsoup4
+pytest
+pytest-asyncio
+httpx

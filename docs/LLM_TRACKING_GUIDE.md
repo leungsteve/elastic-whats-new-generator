@@ -1,68 +1,70 @@
-# LLM Usage Tracking & Content Storage - User Guide
+# Elastic What's New Generator - LLM Usage Tracking & Content Storage
+
+**Track Your Elastic Content Creation** - Complete observability for generating Elastic presentations and labs.
 
 ## Quick Start
 
-### Accessing Analytics
-1. Open the web UI at `http://localhost:8000`
+### Accessing Elastic Content Analytics
+1. Open the Elastic What's New Generator web UI at `http://localhost:8000`
 2. Click the **Analytics** tab in the sidebar
-3. View real-time metrics, charts, and content history
+3. View real-time metrics on Elastic content generation, costs, and history
 
 ### What Gets Tracked?
-Every time the system uses an LLM (OpenAI, Gemini, or Claude), it automatically logs:
-- ✅ The exact prompt sent to the LLM
-- ✅ The complete response received
-- ✅ Token usage (prompt + completion tokens)
-- ✅ Estimated cost in USD
-- ✅ Response time
+Every time the system generates Elastic-focused content, it automatically logs:
+- ✅ The exact prompts used to create Elastic presentations and labs
+- ✅ Complete responses with Elastic feature descriptions
+- ✅ Token usage and cost per Elastic content piece
+- ✅ Estimated cost in USD for Elastic content generation
+- ✅ Response time and success rates
 - ✅ Success or failure status
 
-Every presentation or lab you generate is automatically saved with:
-- ✅ Full markdown content
-- ✅ All slides/challenges/datasets
-- ✅ Generation parameters
-- ✅ Feature associations
+Every Elastic presentation or lab you generate is automatically saved with:
+- ✅ Full Elastic-focused markdown content
+- ✅ All Elastic feature slides/challenges/datasets
+- ✅ Generation parameters (domain, audience, storytelling style)
+- ✅ Elastic feature associations and metadata
 
 ## Analytics Dashboard
 
 ### Summary Cards
-At the top of the Analytics tab, you'll see four key metrics:
+Monitor your Elastic content generation with four key metrics:
 
 **Total LLM Calls**
-- Number of times the system called an LLM API
-- Includes all operations: extraction, presentation generation, lab generation
+- Number of API calls made to generate Elastic content
+- Includes all operations: Elastic documentation extraction, Elastic presentation generation, Elastic lab generation
 
 **Total Cost (USD)**
-- Sum of all estimated costs
+- Investment in generating Elastic sales and enablement content
 - Based on provider pricing per 1K tokens
 - Updated in real-time
 
 **Avg Response Time**
-- Average time for LLM to respond
-- Helps identify performance issues
+- Average time to generate Elastic content
+- Helps optimize Elastic content creation workflow
 
 **Success Rate**
-- Percentage of successful LLM calls
-- Helps track API reliability
+- Percentage of successful Elastic content generations
+- Helps ensure reliable Elastic content delivery
 
 ### Usage Charts
 
 **By Provider**
-- Visual breakdown showing OpenAI vs. Gemini vs. Claude usage
-- Bar width represents proportion of total calls
+- Visual breakdown of LLM providers used for Elastic content
+- Compare OpenAI, Gemini, and Claude performance for Elastic generation
 
 **By Operation**
-- Shows distribution across operation types:
-  - `extract` - Content extraction from documentation
-  - `generate_presentation` - Presentation generation
-  - `generate_lab` - Lab generation
+- Distribution across Elastic content operations:
+  - `extract` - Extraction from Elastic documentation
+  - `generate_presentation` - Elastic presentation generation
+  - `generate_lab` - Elastic hands-on lab generation
   - `test` - Test operations
 
-### Content History Browser
-Browse all presentations and labs ever generated:
+### Elastic Content History Browser
+Browse all Elastic presentations and labs ever generated:
 
 **Filters**
-- **Content Type**: Filter by presentation or lab
-- **Domain**: Filter by search, observability, security, or all_domains
+- **Content Type**: Filter by Elastic presentation or Elastic lab
+- **Domain**: Filter by Elastic Search, Elastic Observability, Elastic Security, or unified Elastic platform
 
 **Content Cards** show:
 - Title and content type (with icon)
