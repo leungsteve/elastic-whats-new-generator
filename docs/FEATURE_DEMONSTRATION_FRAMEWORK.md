@@ -16,7 +16,7 @@
 
 ## The Solution: Feature Demonstration Taxonomy
 
-Every Elastic feature falls into one of these demonstration categories. Each category has **specific requirements** for what MUST be shown.
+Every Elastic feature falls into one of **6 demonstration categories**. Each category has **specific requirements** for what MUST be shown.
 
 ### Category 1: Performance Optimization Features
 **What They Do**: Make things faster, cheaper, or more efficient
@@ -493,6 +493,81 @@ concepts are related, even with zero word overlap.
 ### 4. The Improvement
 - Quantify what got better
 - Show metrics, logs, or outcomes
+```
+
+---
+
+### Category 6: Detection/Visibility Features
+**What They Do**: Reveal blind spots, detect issues, provide observability
+**Observable Evidence Required**: Before (can't see) → After (can see + act)
+
+#### Features in This Category
+- APM Service Maps
+- Log Anomaly Detection
+- Threat Detection Rules
+- Security Analytics
+- Infrastructure Monitoring
+- SLO Tracking
+- Attack Discovery
+- Compliance Dashboards
+
+#### Demonstration Requirements (MANDATORY)
+
+```markdown
+## MUST Show:
+
+### 1. The Blind Spot (Before)
+- What you CANNOT see without the feature
+- The pain of not knowing
+- Example: "Manual log searches take 15 min per incident, often miss root cause"
+
+### 2. Enable Feature
+- Configure the detection/visibility capability
+- Show what it's monitoring/analyzing
+
+### 3. What's Now Visible (After)
+- What you CAN now see
+- The insight provided
+- Example Observability: "Service map shows bottleneck in payment-api (850ms latency spike)"
+- Example Security: "Threat detection identified 3 ransomware patterns with 98% confidence"
+
+### 4. Impact Quantified
+- Time saved, threats caught, MTTR reduced
+- Example Observability: "MTTR: 4hr → 12min (20x faster)"
+- Example Security: "Attacks detected: 0 → 3 (previously invisible), blocked in <2min"
+
+### 5. Action Enabled
+- What can you DO with this visibility?
+- Example: "Auto-alert on-call engineer, trigger runbook, isolate host"
+```
+
+#### Example: APM Service Map Lab
+
+```markdown
+Challenge 1: The Blind Spot
+Problem: "App is slow but logs spread across 12 services. Find the bottleneck."
+Manual approach: 15+ min of grep, correlation, guessing
+Result: Often wrong or incomplete
+
+Challenge 2: Enable APM Distributed Tracing
+Configure: APM agents on all services
+Show: Traces being collected
+
+Challenge 3: Service Map Reveals Root Cause
+Query: View service map for slow requests
+Visible: payment-api showing 850ms latency (vs 50ms others)
+         3 downstream calls, 1 DB query taking 780ms
+
+Challenge 4: MTTR Improvement
+Before: 4hr average MTTR (manual correlation)
+After: 12min MTTR (visual root cause)
+Improvement: 20x faster incident resolution
+
+Challenge 5: Automated Response
+Action: Create alert when payment-api > 500ms
+        Auto-page database team
+        Include service map link in alert
+Result: Proactive detection + fast resolution
 ```
 
 ---

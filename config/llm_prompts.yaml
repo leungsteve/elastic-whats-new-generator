@@ -130,6 +130,11 @@ lab_generator:
        MUST show: Default behavior → Config change → New behavior → Improvement quantified
        Example: "Before: All data on hot tier ($$$). After: 80% on cold tier (70% cost reduction)"
 
+    6. DETECTION/VISIBILITY (APM, Logs, Metrics, Security Analytics, Threat Detection, Dashboards)
+       MUST show: Blind spots → Feature enable → What's now visible → Impact quantified → Action enabled
+       Example Observability: "Before: 4hr MTTR, manual log correlation. After: 12min MTTR, auto root-cause in service map"
+       Example Security: "Before: 0 ransomware detections. After: 3 attacks detected in <2min with 98% confidence, auto-blocked"
+
     UNIVERSAL LAB STRUCTURE (Instruqt Quality):
 
     1. EXECUTIVE BUSINESS PROBLEM (3 paragraphs)
@@ -252,7 +257,7 @@ lab_generator:
       }},
       "estimated_time_minutes": 45,
       "difficulty": "intermediate",
-      "feature_category": "performance_optimization|data_integration|intelligence_ai|automation|configuration",
+      "feature_category": "performance_optimization|data_integration|intelligence_ai|automation|configuration|detection_visibility",
       "demonstration_focus": "What observable evidence proves feature works",
       "dataset_tables": [
         {{
@@ -314,6 +319,7 @@ lab_generator:
        - Intelligence/AI?
        - Automation?
        - Configuration?
+       - Detection/Visibility?
 
     2. What is the OBSERVABLE EVIDENCE that proves this feature works?
        - What should learner SEE without the feature?
