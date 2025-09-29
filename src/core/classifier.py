@@ -47,11 +47,19 @@ class FeatureClassifier:
             The classified theme
         """
         # Combine all feature text for analysis
+        # Get content from content research if available
+        research_content = ""
+        if feature.content_research and feature.content_research.primary_sources:
+            research_content = " ".join([
+                source.content for source in feature.content_research.primary_sources
+                if source.content
+            ]).lower()
+
         text_content = " ".join([
             feature.name.lower(),
             feature.description.lower(),
             " ".join(feature.benefits).lower(),
-            feature.scraped_content.lower() if feature.scraped_content else ""
+            research_content
         ])
 
         # Score each theme based on keyword matches
@@ -81,11 +89,19 @@ class FeatureClassifier:
         theme = self.classify(feature)
 
         # Calculate confidence based on keyword match strength
+        # Get content from content research if available
+        research_content = ""
+        if feature.content_research and feature.content_research.primary_sources:
+            research_content = " ".join([
+                source.content for source in feature.content_research.primary_sources
+                if source.content
+            ]).lower()
+
         text_content = " ".join([
             feature.name.lower(),
             feature.description.lower(),
             " ".join(feature.benefits).lower(),
-            feature.scraped_content.lower() if feature.scraped_content else ""
+            research_content
         ])
 
         ai_score = self._score_theme(text_content, self._ai_keywords)

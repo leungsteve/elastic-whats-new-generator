@@ -2,7 +2,12 @@
 
 ## Overview
 
-The Content Research system automatically enriches basic feature metadata with comprehensive documentation, code examples, and contextual information scraped from web sources. This enriched content enables the generation of detailed, accurate presentations and hands-on labs.
+The Content Research system automatically enriches basic feature metadata with comprehensive documentation using a **two-stage LLM architecture**:
+
+1. **Stage 1 (Content Extraction)**: Scrape documentation and use LLM to extract structured information, cached in Elasticsearch
+2. **Stage 2 (Presentation Generation)**: Use cached LLM extractions to generate comprehensive presentations and labs
+
+This architecture minimizes LLM costs by caching extractions and enables rapid, high-quality content generation.
 
 ## Content Research Workflow
 
@@ -18,23 +23,32 @@ The Content Research system automatically enriches basic feature metadata with c
 - Admin interface for bulk content updates
 - CLI command for research management
 
-### 2. Research Pipeline
+### 2. Two-Stage LLM Research Pipeline
 
 ```mermaid
 graph TD
-    A[Feature Created] --> B{Scraping Enabled?}
-    B -->|Yes| C[Queue Research Job]
-    B -->|No| D[Store Basic Feature]
-    C --> E[Scrape Primary Sources]
-    E --> F[Extract Embedded Links]
-    F --> G[Scrape Related Sources]
-    G --> H[Content Processing]
-    H --> I[AI Content Extraction]
-    I --> J[Generate AI Insights]
-    J --> K[Create ELSER Embeddings]
-    K --> L[Update Feature Document]
-    L --> M[Research Complete]
+    A[Feature Created] --> B[Scrape Documentation]
+    B --> C[Stage 1: LLM Content Extraction]
+    C --> D[Extract Structured Info]
+    D --> E[Cache in Elasticsearch]
+    E --> F[Research Complete]
+
+    F --> G[User Requests Presentation]
+    G --> H[Stage 2: LLM Presentation Generation]
+    H --> I[Load Cached Extractions]
+    I --> J[Generate Presentation]
+    J --> K[Return Complete Presentation]
+
+    style C fill:#e1f5ff
+    style H fill:#e1f5ff
+    style E fill:#d4edda
 ```
+
+**Key Benefits:**
+- **Cost Efficient**: Extract once, generate many presentations
+- **Fast Generation**: No re-scraping or re-extraction needed
+- **Consistent Quality**: Cached extractions ensure consistency
+- **Flexible Output**: Same cache supports different presentation styles
 
 ### 3. Primary Source Processing
 
@@ -129,7 +143,111 @@ def extract_code_examples(content: str) -> List[CodeExample]:
     return examples
 ```
 
-### 6. AI Content Extraction
+### 6. Stage 1: LLM Content Extraction
+
+**Multi-Provider Support:**
+The system supports multiple LLM providers with automatic fallback:
+- **OpenAI** (gpt-4o, gpt-4o-mini) - Default, cost-effective
+- **Google Gemini** (gemini-1.5-flash) - Fast and cheap alternative
+- **Anthropic Claude** (claude-3-sonnet) - High-quality fallback
+
+**Unified LLM Client:**
+```python
+from src.integrations.unified_llm_client import UnifiedLLMClient
+
+# Auto-selects provider based on available API keys
+llm_client = UnifiedLLMClient(
+    model="gpt-4o",  # or specify per-provider
+    openai_base_url="https://your-proxy-url"  # Optional proxy support
+)
+
+# Extract structured content from scraped documentation
+extracted = llm_client.extract_content(
+    feature_name="Elastic's managed OTLP endpoint",
+    scraped_content=documentation_text,
+    documentation_url=source_url
+)
+```
+
+**LLM Extraction Output:**
+```python
+@dataclass
+class LLMExtractedContent:
+    summary: str  # 2-3 sentence summary
+    use_cases: List[str]  # Common use cases
+    key_capabilities: List[str]  # Core technical capabilities
+    benefits: List[str]  # Business and technical benefits
+    technical_requirements: List[str]  # Prerequisites
+    target_audience: str  # Primary target audience
+    complexity_level: str  # beginner|intermediate|advanced
+    extracted_at: datetime
+    model_used: str  # e.g., "openai/gpt-4o"
+```
+
+**Cached in Elasticsearch:**
+```json
+{
+  "feature_id": "observability-2329",
+  "content_research": {
+    "llm_extracted": {
+      "summary": "Elastic's Managed OTLP Endpoint is a fully managed...",
+      "use_cases": [
+        "Logs and infrastructure monitoring using OTLP-formatted logs",
+        "Application Performance Monitoring (APM) with OTLP telemetry"
+      ],
+      "key_capabilities": [...],
+      "benefits": [...],
+      "model_used": "openai/gpt-4o"
+    }
+  }
+}
+```
+
+### 7. Stage 2: LLM Presentation Generation
+
+**Presentation Generator:**
+```python
+from src.core.generators.llm_presentation_generator import LLMPresentationGenerator
+
+# Initialize with LLM client
+generator = LLMPresentationGenerator(llm_client)
+
+# Generate presentation from cached extractions
+presentation = generator.generate_presentation(
+    features=features_with_llm_extracted_content,
+    domain=Domain.OBSERVABILITY,
+    audience="mixed",
+    narrative_style="customer_journey",
+    technical_depth="medium",
+    slide_count=7,
+    quarter="Q1-2025"
+)
+```
+
+**7-Slide Structure (Required):**
+1. **Opening Hook** - Infrastructure challenge
+2. **Innovation Overview** - Three game-changing innovations
+3. **Simplify Theme** - "Do more with less" features
+4. **Optimize Theme** - "Do it faster" features
+5. **AI Innovation Theme** - "Do it with AI" features
+6. **Business Case/ROI** - Quantified benefits and competitive advantages
+7. **Call to Action** - Next steps
+
+**Customizable Prompts:**
+LLM prompts are configurable via `config/llm_prompts.yaml`:
+```yaml
+presentation_generator:
+  system_prompt: |
+    You are an expert presentation designer for Elastic technical content.
+    Create a compelling {slide_count}-slide presentation following Elastic's REQUIRED storytelling framework.
+    ...
+  user_prompt: |
+    Generate a {slide_count}-slide presentation for Elastic {domain}...
+```
+
+See `config/README.md` for full customization guide.
+
+### 8. AI Content Extraction (Legacy)
 
 **Key Concept Identification:**
 ```python

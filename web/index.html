@@ -35,7 +35,7 @@
                             <span>Features</span>
                         </li>
                         <li class="nav-item" data-tab="presentations">
-                            <i class="fas fa-presentation"></i>
+                            <i class="fas fa-file-powerpoint"></i>
                             <span>Presentations</span>
                         </li>
                         <li class="nav-item" data-tab="labs">
@@ -114,21 +114,30 @@
 
                 <!-- Presentations Tab -->
                 <div id="presentations-tab" class="tab-content">
-                    <div class="tab-header">
-                        <h2>Presentation Generator</h2>
-                    </div>
-
-                    <div class="generator-form">
-                        <div class="form-section">
-                            <h3>Select Features</h3>
-                            <div class="feature-selector" id="presentation-features">
-                                <!-- Feature checkboxes will be populated here -->
+                    <div class="split-view-container">
+                        <!-- Left Panel: Configuration -->
+                        <div class="config-panel">
+                            <div class="tab-header">
+                                <h2>Presentation Generator</h2>
                             </div>
-                        </div>
 
-                        <div class="form-section">
-                            <h3>Presentation Settings</h3>
-                            <div class="form-grid">
+                            <div class="form-section">
+                                <h3>Select Features</h3>
+                                <div class="feature-list-controls">
+                                    <input type="text" id="presentation-feature-search" placeholder="Search features..." class="search-input">
+                                    <select id="presentation-sort" class="sort-select">
+                                        <option value="name">Sort by Name</option>
+                                        <option value="domain">Sort by Domain</option>
+                                        <option value="date">Sort by Date</option>
+                                    </select>
+                                </div>
+                                <div class="feature-list" id="presentation-features">
+                                    <!-- Feature list will be populated here -->
+                                </div>
+                            </div>
+
+                            <div class="form-section">
+                                <h3>Presentation Settings</h3>
                                 <div class="form-group">
                                     <label for="presentation-domain">Domain</label>
                                     <select id="presentation-domain">
@@ -151,11 +160,9 @@
                                     </select>
                                 </div>
                             </div>
-                        </div>
 
-                        <div class="form-section">
-                            <h3>🎭 Advanced Storytelling Features</h3>
-                            <div class="form-grid">
+                            <div class="form-section">
+                                <h3>🎭 Advanced Storytelling</h3>
                                 <div class="form-group">
                                     <label for="narrative-style">Narrative Style</label>
                                     <select id="narrative-style">
@@ -180,8 +187,6 @@
                                         <option value="low">Low</option>
                                     </select>
                                 </div>
-                            </div>
-                            <div class="form-grid">
                                 <div class="form-group">
                                     <label>
                                         <input type="checkbox" id="include-customer-stories" checked>
@@ -201,51 +206,63 @@
                                     </label>
                                 </div>
                             </div>
+
+                            <div class="form-actions">
+                                <button class="btn btn-primary" onclick="generatePresentation()">
+                                    <i class="fas fa-magic"></i> Generate Presentation
+                                </button>
+                            </div>
                         </div>
 
-                        <div class="form-actions">
-                            <button class="btn btn-primary" onclick="generatePresentation()">
-                                <i class="fas fa-magic"></i> Generate Presentation
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="preview-panel" id="presentation-preview" style="display: none;">
-                        <h3>Presentation Preview</h3>
-                        <div class="preview-content" id="presentation-content">
-                            <!-- Generated presentation will appear here -->
-                        </div>
-                        <div class="export-options">
-                            <button class="btn btn-secondary" onclick="exportPresentation('standard')">
-                                <i class="fas fa-file-text"></i> Standard Markdown
-                            </button>
-                            <button class="btn btn-secondary" onclick="exportPresentation('github')">
-                                <i class="fab fa-github"></i> GitHub Markdown
-                            </button>
-                            <button class="btn btn-secondary" onclick="exportPresentation('reveal_js')">
-                                <i class="fas fa-desktop"></i> Reveal.js
-                            </button>
+                        <!-- Right Panel: Preview -->
+                        <div class="preview-panel-large" id="presentation-preview">
+                            <div class="preview-header">
+                                <h3>Presentation Preview</h3>
+                                <div class="export-options">
+                                    <button class="btn btn-secondary btn-small" onclick="exportPresentation('standard')">
+                                        <i class="fas fa-file-text"></i> Standard
+                                    </button>
+                                    <button class="btn btn-secondary btn-small" onclick="exportPresentation('github')">
+                                        <i class="fab fa-github"></i> GitHub
+                                    </button>
+                                    <button class="btn btn-secondary btn-small" onclick="exportPresentation('reveal_js')">
+                                        <i class="fas fa-desktop"></i> Reveal.js
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="preview-content-large" id="presentation-content">
+                                <!-- Generated presentation will appear here -->
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Labs Tab -->
                 <div id="labs-tab" class="tab-content">
-                    <div class="tab-header">
-                        <h2>Lab Workshop Generator</h2>
-                    </div>
-
-                    <div class="generator-form">
-                        <div class="form-section">
-                            <h3>Select Features for Labs</h3>
-                            <div class="feature-selector" id="lab-features">
-                                <!-- Feature checkboxes will be populated here -->
+                    <div class="split-view-container">
+                        <!-- Left Panel: Configuration -->
+                        <div class="config-panel">
+                            <div class="tab-header">
+                                <h2>Lab Workshop Generator</h2>
                             </div>
-                        </div>
 
-                        <div class="form-section">
-                            <h3>Workshop Settings</h3>
-                            <div class="form-grid">
+                            <div class="form-section">
+                                <h3>Select Features for Labs</h3>
+                                <div class="feature-list-controls">
+                                    <input type="text" id="lab-feature-search" placeholder="Search features..." class="search-input">
+                                    <select id="lab-sort" class="sort-select">
+                                        <option value="name">Sort by Name</option>
+                                        <option value="domain">Sort by Domain</option>
+                                        <option value="date">Sort by Date</option>
+                                    </select>
+                                </div>
+                                <div class="feature-list" id="lab-features">
+                                    <!-- Feature list will be populated here -->
+                                </div>
+                            </div>
+
+                            <div class="form-section">
+                                <h3>Workshop Settings</h3>
                                 <div class="form-group">
                                     <label for="workshop-title">Workshop Title</label>
                                     <input type="text" id="workshop-title" value="Elastic Workshop">
@@ -265,27 +282,30 @@
                                     </label>
                                 </div>
                             </div>
+
+                            <div class="form-actions">
+                                <button class="btn btn-primary" onclick="generateLabs()">
+                                    <i class="fas fa-flask"></i> Generate Labs
+                                </button>
+                            </div>
                         </div>
 
-                        <div class="form-actions">
-                            <button class="btn btn-primary" onclick="generateLabs()">
-                                <i class="fas fa-flask"></i> Generate Labs
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="preview-panel" id="lab-preview" style="display: none;">
-                        <h3>Lab Workshop Preview</h3>
-                        <div class="preview-content" id="lab-content">
-                            <!-- Generated labs will appear here -->
-                        </div>
-                        <div class="export-options">
-                            <button class="btn btn-secondary" onclick="exportLabs('inline')">
-                                <i class="fas fa-eye"></i> View Inline
-                            </button>
-                            <button class="btn btn-secondary" onclick="exportLabs('file')">
-                                <i class="fas fa-download"></i> Download File
-                            </button>
+                        <!-- Right Panel: Preview -->
+                        <div class="preview-panel-large" id="lab-preview">
+                            <div class="preview-header">
+                                <h3>Lab Workshop Preview</h3>
+                                <div class="export-options">
+                                    <button class="btn btn-secondary btn-small" onclick="exportLabs('inline')">
+                                        <i class="fas fa-eye"></i> View Inline
+                                    </button>
+                                    <button class="btn btn-secondary btn-small" onclick="exportLabs('file')">
+                                        <i class="fas fa-download"></i> Download
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="preview-content-large" id="lab-content">
+                                <!-- Generated labs will appear here -->
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -343,12 +363,6 @@
                         <label for="feature-links">Documentation Links (one per line)</label>
                         <textarea id="feature-links" rows="3" placeholder="https://www.elastic.co/blog/...&#10;https://www.elastic.co/guide/..."></textarea>
                     </div>
-                    <div class="form-group">
-                        <label>
-                            <input type="checkbox" id="scrape-docs">
-                            Automatically scrape documentation content
-                        </label>
-                    </div>
                 </form>
             </div>
             <div class="modal-footer">
@@ -368,6 +382,6 @@
         </div>
     </div>
 
-    <script src="/static/app.js?v=4"></script>
+    <script src="/static/app.js?v=10"></script>
 </body>
 </html>

@@ -20,7 +20,7 @@ from ..core.models import (
     Feature, SourceContent, SourceMetadata, ContentResearch,
     ContentResearchStatus, ExtractedContent, AIInsights,
     CodeExample, UseCase, PresentationAngle, LabScenario,
-    ELSEREmbedding, ContentEmbeddings
+    ELSEREmbedding, ContentEmbeddings, LLMExtractedContent
 )
 
 logger = logging.getLogger(__name__)
@@ -86,10 +86,11 @@ class ContentResearchConfig:
 class ContentResearchService:
     """Service for comprehensive feature content research."""
 
-    def __init__(self, config: Optional[ContentResearchConfig] = None, ai_client = None, elasticsearch_client = None):
+    def __init__(self, config: Optional[ContentResearchConfig] = None, ai_client = None, elasticsearch_client = None, claude_client = None):
         self.config = config or ContentResearchConfig()
         self.ai_client = ai_client
         self.elasticsearch_client = elasticsearch_client
+        self.claude_client = claude_client  # NEW: Claude client for LLM extraction
         self.rate_limiter = RateLimiter(self.config.rate_limit_per_domain)
 
         # HTTP session setup
@@ -128,14 +129,24 @@ class ContentResearchService:
             related_sources = await self._discover_related_sources(primary_sources, feature)
             content_research.related_sources = related_sources
 
-            # Step 3: Extract structured content using AI
+            # Step 2.5: LLM-based content extraction (NEW STAGE 1 EXTRACTION)
+            if self.claude_client and primary_sources:
+                try:
+                    llm_extracted = await self._extract_content_with_llm(primary_sources, feature)
+                    content_research.llm_extracted = llm_extracted
+                    logger.info(f"LLM extraction completed for {feature.id}")
+                except Exception as e:
+                    logger.error(f"LLM extraction failed for {feature.id}: {e}")
+                    # Continue without LLM extraction rather than failing entire research
+
+            # Step 3: Extract structured content using AI (legacy)
             if self.config.ai_insights_enabled and self.ai_client:
                 extracted_content = await self._extract_structured_content(
                     primary_sources + related_sources, feature
                 )
                 content_research.extracted_content = extracted_content
 
-                # Step 4: Generate AI insights
+                # Step 4: Generate AI insights (legacy)
                 ai_insights = await self._generate_ai_insights(
                     extracted_content, primary_sources + related_sources, feature
                 )
@@ -411,6 +422,49 @@ class ContentResearchService:
         """Check if URL is in allowed domains."""
         domain = urlparse(url).netloc
         return any(allowed in domain for allowed in self.config.allowed_domains)
+
+    async def _extract_content_with_llm(self, sources: List[SourceContent], feature: Feature) -> Optional[LLMExtractedContent]:
+        """
+        Stage 1: Extract structured content from scraped documentation using Claude.
+
+        This is the NEW extraction pipeline that uses Claude Sonnet to analyze
+        raw scraped content and extract structured information.
+
+        Args:
+            sources: List of scraped content sources
+            feature: Feature being analyzed
+
+        Returns:
+            LLMExtractedContent with structured information, or None if extraction fails
+        """
+        if not self.claude_client or not sources:
+            return None
+
+        # Find the best source (longest content from primary documentation)
+        best_source = max(sources, key=lambda s: len(s.content))
+
+        if len(best_source.content) < 200:
+            logger.warning(f"Source content too short for LLM extraction: {len(best_source.content)} chars")
+            return None
+
+        try:
+            logger.info(f"Extracting content with Claude for {feature.name} from {best_source.url}")
+
+            # Call Claude client for extraction
+            extracted = self.claude_client.extract_content(
+                feature_name=feature.name,
+                scraped_content=best_source.content,
+                documentation_url=best_source.url
+            )
+
+            logger.info(f"Successfully extracted content via Claude: {len(extracted.use_cases)} use cases, "
+                       f"{len(extracted.key_capabilities)} capabilities, {len(extracted.benefits)} benefits")
+
+            return extracted
+
+        except Exception as e:
+            logger.error(f"Claude extraction failed for {feature.name}: {e}")
+            return None
 
     async def _extract_structured_content(self, sources: List[SourceContent], feature: Feature) -> ExtractedContent:
         """Use AI to extract structured content from sources."""

@@ -1,8 +1,14 @@
 import pytest
 from unittest.mock import Mock, MagicMock
-from elasticsearch import Elasticsearch
 from src.core.models import Feature, Theme, Domain
-from src.integrations.elasticsearch import FeatureStorage
+
+# Optional imports - only needed for integration tests
+try:
+    from elasticsearch import Elasticsearch
+    from src.integrations.elasticsearch import FeatureStorage
+    ELASTICSEARCH_AVAILABLE = True
+except ImportError:
+    ELASTICSEARCH_AVAILABLE = False
 
 @pytest.fixture
 def sample_feature():
@@ -74,6 +80,8 @@ def mock_elasticsearch():
 @pytest.fixture
 def feature_storage(mock_elasticsearch):
     """Feature storage with mocked Elasticsearch"""
+    if not ELASTICSEARCH_AVAILABLE:
+        pytest.skip("Elasticsearch not available")
     return FeatureStorage(mock_elasticsearch)
 
 @pytest.fixture

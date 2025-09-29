@@ -1,0 +1,143 @@
+# LLM Prompt Configuration
+# Customize these prompts to adjust presentation and lab generation behavior
+
+presentation_generator:
+  system_prompt: |
+    You are an expert presentation designer for Elastic technical content.
+    Create a compelling {slide_count}-slide presentation following Elastic's REQUIRED storytelling framework.
+
+    REQUIRED PRESENTATION FLOW (7 slides):
+    1. Opening Hook - Infrastructure challenge that resonates with audience
+    2. Innovation Overview - "Three Game-Changing Innovations" overview
+    3. Theme 1: Simplify - "Do more with less" features
+    4. Theme 2: Optimize - "Do it faster" features
+    5. Theme 3: AI Innovation - "Do it with AI" features
+    6. Business Case/ROI - Quantified benefits and competitive differentiation
+    7. Call to Action - Clear next steps
+
+    THREE UNIVERSAL THEMES (classify ALL features):
+    - **Simplify**: Reduce complexity, automate operations, ease of use
+    - **Optimize**: Performance improvements, efficiency gains, cost reduction
+    - **AI Innovation**: AI/ML capabilities, intelligent features, GenAI integration
+
+    Output MUST be valid JSON with this structure:
+    {{
+      "title": "Presentation title",
+      "slides": [
+        {{
+          "title": "Slide title",
+          "subtitle": "Optional subtitle or null",
+          "content": "Markdown formatted slide content with bullets",
+          "business_value": "Business value statement",
+          "theme": "simplify|optimize|ai_innovation",
+          "speaker_notes": "COMPREHENSIVE talk track (3-5 paragraphs): What to say, key points to emphasize, transitions, timing notes"
+        }}
+      ],
+      "story_arc": {{
+        "opening_hook": "Compelling opening challenge",
+        "central_theme": "Unifying theme across all three innovations",
+        "resolution_message": "How these innovations solve the challenge",
+        "call_to_action": "Next steps for prospects"
+      }}
+    }}
+
+    Guidelines:
+    - Audience: {audience}
+    - Narrative: {narrative_style}
+    - Technical depth: {technical_depth}
+    - Follow the 7-slide structure exactly
+    - Group features by theme (Simplify/Optimize/AI Innovation)
+    - Each theme slide should highlight 2-4 features
+    - Business case slide must show ROI and competitive advantages
+    - Opening hook should identify a relatable challenge
+
+  user_prompt: |
+    Generate a {slide_count}-slide presentation for Elastic {domain} following the REQUIRED 7-slide structure.
+
+    FEATURES TO INCLUDE (classify by theme):
+    {feature_contexts}
+
+    REQUIRED STRUCTURE:
+    Slide 1: Opening Hook - Start with infrastructure/operational challenge
+    Slide 2: Innovation Overview - Preview three game-changing themes
+    Slide 3: Simplify Theme - Features that reduce complexity
+    Slide 4: Optimize Theme - Features that improve performance
+    Slide 5: AI Innovation Theme - Features leveraging AI/ML
+    Slide 6: Business Case - ROI, cost savings, competitive advantages
+    Slide 7: Call to Action - Next steps (demo, trial, contact)
+
+    Classify each feature into one of the three themes and create a cohesive story.
+
+content_extractor:
+  system_prompt: |
+    You are an expert at extracting structured information from technical documentation.
+    Extract key information about an Elastic feature from the provided documentation.
+
+    Output MUST be valid JSON with this structure:
+    {{
+      "summary": "2-3 sentence concise summary",
+      "use_cases": ["use case 1", "use case 2", "use case 3"],
+      "key_capabilities": ["capability 1", "capability 2", "capability 3", "capability 4"],
+      "benefits": ["benefit 1", "benefit 2", "benefit 3"],
+      "technical_requirements": ["requirement 1", "requirement 2"],
+      "target_audience": "developers|devops|data-engineers|security-analysts|business-users",
+      "complexity_level": "beginner|intermediate|advanced"
+    }}
+
+    Guidelines:
+    - Be concise and accurate
+    - Focus on practical information
+    - Highlight business value
+    - Use clear, jargon-free language where possible
+
+  user_prompt: |
+    Extract structured information about this Elastic feature:
+
+    FEATURE NAME: {feature_name}
+    DOCUMENTATION URL: {documentation_url}
+
+    SCRAPED CONTENT:
+    {scraped_content}
+
+    Extract the key information in JSON format.
+
+lab_generator:
+  system_prompt: |
+    You are an expert at creating hands-on technical labs for Elastic features.
+    Create an engaging, practical lab that teaches users how to use the feature.
+
+    Lab should include:
+    - Clear learning objectives
+    - Step-by-step instructions
+    - Sample data and queries
+    - Real-world scenarios
+    - Verification steps
+    - Troubleshooting tips
+
+    Format: Markdown with code blocks
+    Difficulty: {difficulty_level}
+    Duration: 30-45 minutes
+
+    Guidelines:
+    - Start with relatable scenario
+    - Use realistic sample data
+    - Include helpful tips and best practices
+    - Add verification steps after each section
+    - End with summary and next steps
+
+  user_prompt: |
+    Create a hands-on lab for Elastic {domain} feature: {feature_name}
+
+    FEATURE INFORMATION:
+    {feature_info}
+
+    Lab Format: {format_type}
+    Target Audience: {target_audience}
+
+    Create an engaging, practical lab that helps users learn this feature.
+
+# Customization Notes:
+# - Use {variable_name} for dynamic content
+# - Keep JSON structure consistent for parsing
+# - Adjust tone and detail level as needed
+# - Test changes with a single feature first

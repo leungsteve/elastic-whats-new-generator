@@ -443,6 +443,59 @@ class ElasticGenerator {
                                     </div>
                                 </div>
 
+                                ${research.llm_extracted ? `
+                                    <div class="llm-extracted-content">
+                                        <h5>🤖 AI-Generated Summary</h5>
+                                        <div class="llm-summary">
+                                            <p>${research.llm_extracted.summary}</p>
+                                        </div>
+
+                                        ${research.llm_extracted.use_cases?.length ? `
+                                            <div class="llm-section">
+                                                <h6>Use Cases</h6>
+                                                <ul>
+                                                    ${research.llm_extracted.use_cases.map(useCase => `<li>${useCase}</li>`).join('')}
+                                                </ul>
+                                            </div>
+                                        ` : ''}
+
+                                        ${research.llm_extracted.key_capabilities?.length ? `
+                                            <div class="llm-section">
+                                                <h6>Key Capabilities</h6>
+                                                <ul>
+                                                    ${research.llm_extracted.key_capabilities.map(capability => `<li>${capability}</li>`).join('')}
+                                                </ul>
+                                            </div>
+                                        ` : ''}
+
+                                        ${research.llm_extracted.benefits?.length ? `
+                                            <div class="llm-section">
+                                                <h6>Benefits</h6>
+                                                <ul>
+                                                    ${research.llm_extracted.benefits.map(benefit => `<li>${benefit}</li>`).join('')}
+                                                </ul>
+                                            </div>
+                                        ` : ''}
+
+                                        ${research.llm_extracted.technical_requirements?.length ? `
+                                            <div class="llm-section">
+                                                <h6>Technical Requirements</h6>
+                                                <ul>
+                                                    ${research.llm_extracted.technical_requirements.map(req => `<li>${req}</li>`).join('')}
+                                                </ul>
+                                            </div>
+                                        ` : ''}
+
+                                        <div class="llm-metadata">
+                                            <small>
+                                                <strong>Target Audience:</strong> ${research.llm_extracted.target_audience || 'developers'} •
+                                                <strong>Complexity:</strong> ${research.llm_extracted.complexity_level || 'intermediate'} •
+                                                <strong>Model:</strong> ${research.llm_extracted.model_used || 'N/A'}
+                                            </small>
+                                        </div>
+                                    </div>
+                                ` : ''}
+
                                 ${research.ai_insights?.technical_summary ? `
                                     <div class="technical-summary">
                                         <h5>Technical Summary</h5>
@@ -694,67 +747,110 @@ class ElasticGenerator {
 
     populateFeatureSelector(containerId, filterDomain = null) {
         const container = document.getElementById(containerId);
-        let features = this.features;
+        let features = [...this.features];
 
         // Apply test feature filtering - hide test features by default
         const testToggle = document.getElementById('show-test-features');
         const showTestFeatures = testToggle ? testToggle.checked : false;
-        console.log(`PopulateFeatureSelector - Show test features: ${showTestFeatures}`);
 
         features = features.filter(feature => {
-            // Always show non-test features, only show test features if toggle is enabled
             const isTest = this.isTestFeature(feature);
-            const shouldShow = !isTest || showTestFeatures;
-            console.log(`${feature.name} - Test: ${isTest}, Show: ${shouldShow}`);
-            return shouldShow;
+            return !isTest || showTestFeatures;
         });
-
-        // For lab features, prioritize valid sample features but show all
-        if (containerId === 'lab-features') {
-            const validSampleFeatureIds = [
-                'bbq-001', 'acorn-001', 'agent-builder-001', 'cross-cluster-001',
-                'autoops-obs-001', 'apm-performance-001', 'ai-assistant-obs-001',
-                'siem-efficiency-001', 'managed-security-001', 'ml-security-001'
-            ];
-            // Sort to show sample features first, then user-created features
-            features = features.sort((a, b) => {
-                const aIsValid = validSampleFeatureIds.includes(a.id);
-                const bIsValid = validSampleFeatureIds.includes(b.id);
-                if (aIsValid && !bIsValid) return -1;
-                if (!aIsValid && bIsValid) return 1;
-                return 0;
-            });
-        }
 
         // Filter by domain if specified
         if (filterDomain && filterDomain !== 'all_domains') {
             features = features.filter(f => f.domain === filterDomain);
         }
 
-        container.innerHTML = features.map(feature => {
-            // For lab features, mark user-created features with a warning
-            let label = `${feature.name} (${feature.domain})`;
-            let extraClass = '';
+        // Sort by name by default
+        features.sort((a, b) => a.name.localeCompare(b.name));
 
-            if (containerId === 'lab-features') {
-                const validSampleFeatureIds = [
-                    'bbq-001', 'acorn-001', 'agent-builder-001', 'cross-cluster-001',
-                    'autoops-obs-001', 'apm-performance-001', 'ai-assistant-obs-001',
-                    'siem-efficiency-001', 'managed-security-001', 'ml-security-001'
-                ];
-                if (!validSampleFeatureIds.includes(feature.id)) {
-                    label += ' ⚠️ (New feature - lab generation may not work)';
-                    extraClass = ' style="color: #856404;"';
-                }
+        // Store features for search/sort
+        container.dataset.allFeatures = JSON.stringify(features);
+
+        // Render as list
+        container.innerHTML = features.map(feature => `
+            <div class="feature-list-item" data-feature-id="${feature.id}">
+                <input type="checkbox" value="${feature.id}" name="selected-features">
+                <div class="feature-list-item-content">
+                    <div class="feature-list-item-name">${feature.name}</div>
+                    <div class="feature-list-item-meta">
+                        <span class="feature-list-item-domain ${feature.domain}">${feature.domain}</span>
+                        <span class="feature-list-item-date">${feature.created_at ? new Date(feature.created_at).toLocaleDateString() : ''}</span>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+
+        // Setup search and sort handlers if not already done
+        this.setupFeatureSelectorHandlers(containerId);
+    }
+
+    setupFeatureSelectorHandlers(containerId) {
+        const prefix = containerId.replace('-features', '');
+        const searchInput = document.getElementById(`${prefix}-feature-search`);
+        const sortSelect = document.getElementById(`${prefix}-sort`);
+
+        if (searchInput && !searchInput.dataset.handlerSet) {
+            searchInput.dataset.handlerSet = 'true';
+            searchInput.addEventListener('input', (e) => {
+                this.filterFeatureList(containerId, e.target.value, sortSelect?.value || 'name');
+            });
+        }
+
+        if (sortSelect && !sortSelect.dataset.handlerSet) {
+            sortSelect.dataset.handlerSet = 'true';
+            sortSelect.addEventListener('change', (e) => {
+                this.filterFeatureList(containerId, searchInput?.value || '', e.target.value);
+            });
+        }
+    }
+
+    filterFeatureList(containerId, searchTerm, sortBy) {
+        const container = document.getElementById(containerId);
+        const featuresData = container.dataset.allFeatures;
+
+        if (!featuresData) return;
+
+        let features = JSON.parse(featuresData);
+
+        // Filter by search term
+        if (searchTerm) {
+            const term = searchTerm.toLowerCase();
+            features = features.filter(f =>
+                f.name.toLowerCase().includes(term) ||
+                f.description.toLowerCase().includes(term) ||
+                f.domain.toLowerCase().includes(term)
+            );
+        }
+
+        // Sort features
+        features.sort((a, b) => {
+            switch(sortBy) {
+                case 'domain':
+                    return a.domain.localeCompare(b.domain) || a.name.localeCompare(b.name);
+                case 'date':
+                    return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+                case 'name':
+                default:
+                    return a.name.localeCompare(b.name);
             }
+        });
 
-            return `
-                <label class="feature-checkbox"${extraClass}>
-                    <input type="checkbox" value="${feature.id}" name="selected-features">
-                    <span>${label}</span>
-                </label>
-            `;
-        }).join('');
+        // Re-render filtered/sorted list
+        container.innerHTML = features.map(feature => `
+            <div class="feature-list-item" data-feature-id="${feature.id}">
+                <input type="checkbox" value="${feature.id}" name="selected-features">
+                <div class="feature-list-item-content">
+                    <div class="feature-list-item-name">${feature.name}</div>
+                    <div class="feature-list-item-meta">
+                        <span class="feature-list-item-domain ${feature.domain}">${feature.domain}</span>
+                        <span class="feature-list-item-date">${feature.created_at ? new Date(feature.created_at).toLocaleDateString() : ''}</span>
+                    </div>
+                </div>
+            </div>
+        `).join('');
     }
 
     updatePresentationFeatureSelector() {
@@ -778,8 +874,7 @@ class ElasticGenerator {
             description: document.getElementById('feature-description').value,
             domain: document.getElementById('feature-domain').value,
             benefits: this.parseTextareaLines(document.getElementById('feature-benefits').value),
-            documentation_links: this.parseTextareaLines(document.getElementById('feature-links').value),
-            scrape_docs: document.getElementById('scrape-docs').checked
+            documentation_links: this.parseTextareaLines(document.getElementById('feature-links').value)
         };
 
         if (!featureData.name || !featureData.description || !featureData.domain) {
@@ -884,14 +979,6 @@ class ElasticGenerator {
                                 <label for="edit-documentation-links">Documentation Links</label>
                                 <textarea id="edit-documentation-links" name="documentation_links" rows="3" placeholder="Enter URLs, one per line">${(feature.documentation_links || []).join('\\n')}</textarea>
                             </div>
-
-                            <div class="form-group">
-                                <label class="checkbox-label">
-                                    <input type="checkbox" id="edit-regenerate-content" name="regenerate_content">
-                                    <span class="checkmark"></span>
-                                    Regenerate content research after updating
-                                </label>
-                            </div>
                         </form>
                     </div>
                     <div class="modal-footer">
@@ -936,8 +1023,7 @@ class ElasticGenerator {
                 description: formData.get('description'),
                 domain: formData.get('domain'),
                 benefits: benefits,
-                documentation_links: documentationLinks,
-                regenerate_content: formData.get('regenerate_content') === 'on'
+                documentation_links: documentationLinks
             };
 
             const response = await fetch(`${this.apiBase}/features/${featureId}`, {
@@ -1090,7 +1176,7 @@ class ElasticGenerator {
             previewText += `**Customer Stories:** ${this.currentPresentation.customer_stories.length} success stories\n`;
         }
 
-        previewText += '\n';
+        previewText += '\n' + '='.repeat(80) + '\n\n';
 
         // Show story arc overview if available
         if (this.currentPresentation.story_arc && this.currentPresentation.story_arc.positions) {
@@ -1098,39 +1184,56 @@ class ElasticGenerator {
             this.currentPresentation.story_arc.positions.forEach((position, index) => {
                 previewText += `**${position.position}:** ${position.summary}\n`;
             });
-            previewText += '\n';
+            previewText += '\n' + '='.repeat(80) + '\n\n';
         }
 
-        // Show slides with enhanced information
+        // Show slides with full content
         slides.forEach((slide, index) => {
-            previewText += `## Slide ${index + 1}: ${slide.title}\n`;
+            previewText += `## Slide ${index + 1}: ${slide.title}\n\n`;
             if (slide.subtitle) {
-                previewText += `### ${slide.subtitle}\n`;
+                previewText += `### ${slide.subtitle}\n\n`;
             }
 
-            // Show talk track preview if available
-            const matchingTrack = this.currentPresentation.talk_tracks?.find(track =>
-                track.slide_number === index + 1 || track.slide_title === slide.title
-            );
-            if (matchingTrack) {
-                previewText += `**🎤 Talk Track Preview:** ${matchingTrack.speaker_notes.substring(0, 150)}...\n`;
+            previewText += `${slide.content}\n\n`;
+
+            if (slide.business_value) {
+                previewText += `**Business Value:**\n${slide.business_value}\n\n`;
             }
 
-            previewText += `${slide.content.substring(0, 200)}...\n\n`;
+            // Show speaker notes/talk track (check both locations)
+            const speakerNotes = slide.speaker_notes ||
+                                this.currentPresentation.talk_tracks?.find(track =>
+                                    track.slide_number === index + 1 || track.slide_title === slide.title
+                                )?.speaker_notes;
+
+            if (speakerNotes) {
+                previewText += `**🎤 Speaker Notes / Talk Track:**\n${speakerNotes}\n\n`;
+            }
+
+            previewText += '-'.repeat(80) + '\n\n';
         });
 
         // Show customer stories summary if available
         if (this.currentPresentation.customer_stories && this.currentPresentation.customer_stories.length > 0) {
             previewText += `## 💼 Customer Success Stories\n\n`;
-            this.currentPresentation.customer_stories.slice(0, 2).forEach((story, index) => {
-                previewText += `**${story.company_name}** (${story.industry})\n`;
-                previewText += `*Challenge:* ${story.challenge.substring(0, 100)}...\n`;
-                previewText += `*Outcome:* ${story.outcome.substring(0, 100)}...\n\n`;
+            this.currentPresentation.customer_stories.forEach((story, index) => {
+                previewText += `### ${story.company_name} (${story.industry})\n\n`;
+                previewText += `**Challenge:** ${story.challenge}\n\n`;
+                previewText += `**Solution:** ${story.solution}\n\n`;
+                previewText += `**Outcome:** ${story.outcome}\n\n`;
+                if (story.metrics && story.metrics.length > 0) {
+                    previewText += `**Metrics:**\n`;
+                    story.metrics.forEach(metric => {
+                        previewText += `- ${metric}\n`;
+                    });
+                    previewText += '\n';
+                }
+                previewText += '-'.repeat(80) + '\n\n';
             });
         }
 
         content.textContent = previewText;
-        preview.style.display = 'block';
+        preview.style.display = 'flex';
     }
 
     async exportPresentation(format) {
@@ -1266,8 +1369,8 @@ class ElasticGenerator {
         }
 
         const labContent = this.currentLabs.content || 'No content available';
-        content.textContent = labContent.substring(0, 2000) + (labContent.length > 2000 ? '...' : '');
-        preview.style.display = 'block';
+        content.textContent = labContent;
+        preview.style.display = 'flex';
     }
 
     async exportLabs(exportFormat) {

@@ -9,7 +9,7 @@ import json
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from elasticsearch import Elasticsearch
-from src.core.models import Feature, Theme, Domain
+from src.core.models import Feature, Theme, Domain, ContentResearch
 
 
 class FeatureStorage:
@@ -45,9 +45,9 @@ class FeatureStorage:
             "documentation_links": feature.documentation_links,
             "theme": feature.theme.value if feature.theme else None,
             "domain": feature.domain.value,
-            "scraped_content": feature.scraped_content,
             "created_at": feature.created_at.isoformat(),
-            "updated_at": feature.updated_at.isoformat()
+            "updated_at": feature.updated_at.isoformat(),
+            "content_research": feature.content_research.dict() if feature.content_research else None
         }
 
         return self.es.index(
@@ -147,7 +147,12 @@ class FeatureStorage:
             "query": {
                 "multi_match": {
                     "query": query_text,
-                    "fields": ["name", "description", "benefits", "scraped_content"]
+                    "fields": [
+                        "name", "description", "benefits",
+                        "content_research.extracted_content.key_concepts",
+                        "content_research.ai_insights.technical_summary",
+                        "content_research.primary_sources.content"
+                    ]
                 }
             },
             "size": size
@@ -205,9 +210,122 @@ class FeatureStorage:
                         "documentation_links": {"type": "keyword"},
                         "theme": {"type": "keyword"},
                         "domain": {"type": "keyword"},
-                        "scraped_content": {"type": "text", "analyzer": "standard"},
                         "created_at": {"type": "date"},
-                        "updated_at": {"type": "date"}
+                        "updated_at": {"type": "date"},
+
+                        # Content research structure
+                        "content_research": {
+                            "properties": {
+                                "status": {"type": "keyword"},
+                                "last_updated": {"type": "date"},
+                                "scraping_enabled": {"type": "boolean"},
+                                "research_depth": {"type": "keyword"},
+
+                                # Primary sources
+                                "primary_sources": {
+                                    "type": "nested",
+                                    "properties": {
+                                        "url": {"type": "keyword"},
+                                        "title": {"type": "text", "analyzer": "standard"},
+                                        "content": {"type": "text", "analyzer": "standard"},
+                                        "scraped_at": {"type": "date"},
+                                        "content_type": {"type": "keyword"},
+                                        "word_count": {"type": "integer"},
+                                        "status": {"type": "keyword"},
+                                        "metadata": {
+                                            "properties": {
+                                                "page_sections": {"type": "keyword"},
+                                                "code_examples": {"type": "integer"},
+                                                "images": {"type": "integer"},
+                                                "language": {"type": "keyword"}
+                                            }
+                                        }
+                                    }
+                                },
+
+                                # Related sources
+                                "related_sources": {
+                                    "type": "nested",
+                                    "properties": {
+                                        "url": {"type": "keyword"},
+                                        "title": {"type": "text", "analyzer": "standard"},
+                                        "content": {"type": "text", "analyzer": "standard"},
+                                        "relevance_score": {"type": "float"},
+                                        "content_type": {"type": "keyword"}
+                                    }
+                                },
+
+                                # Extracted content
+                                "extracted_content": {
+                                    "properties": {
+                                        "key_concepts": {"type": "keyword"},
+                                        "configuration_examples": {
+                                            "type": "nested",
+                                            "properties": {
+                                                "title": {"type": "text"},
+                                                "code": {"type": "text"},
+                                                "description": {"type": "text"},
+                                                "language": {"type": "keyword"}
+                                            }
+                                        },
+                                        "use_cases": {
+                                            "type": "nested",
+                                            "properties": {
+                                                "title": {"type": "text"},
+                                                "description": {"type": "text"},
+                                                "complexity": {"type": "keyword"},
+                                                "estimated_time": {"type": "keyword"}
+                                            }
+                                        },
+                                        "prerequisites": {"type": "text"},
+                                        "related_features": {"type": "keyword"},
+                                        "performance_considerations": {"type": "text"}
+                                    }
+                                },
+
+                                # AI insights
+                                "ai_insights": {
+                                    "properties": {
+                                        "technical_summary": {"type": "text", "analyzer": "standard"},
+                                        "business_value": {"type": "text", "analyzer": "standard"},
+                                        "implementation_complexity": {"type": "keyword"},
+                                        "learning_curve": {"type": "keyword"},
+                                        "recommended_audience": {"type": "keyword"},
+                                        "content_themes": {"type": "keyword"}
+                                    }
+                                },
+
+                                # ELSER embeddings
+                                "embeddings": {
+                                    "properties": {
+                                        "feature_summary": {
+                                            "properties": {
+                                                "text": {"type": "text", "analyzer": "standard"},
+                                                "elser_embedding": {"type": "sparse_vector"},
+                                                "generated_at": {"type": "date"},
+                                                "model_version": {"type": "keyword"}
+                                            }
+                                        },
+                                        "technical_content": {
+                                            "properties": {
+                                                "text": {"type": "text", "analyzer": "standard"},
+                                                "elser_embedding": {"type": "sparse_vector"},
+                                                "generated_at": {"type": "date"},
+                                                "model_version": {"type": "keyword"}
+                                            }
+                                        },
+                                        "full_documentation": {
+                                            "properties": {
+                                                "text": {"type": "text", "analyzer": "standard"},
+                                                "elser_embedding": {"type": "sparse_vector"},
+                                                "generated_at": {"type": "date"},
+                                                "model_version": {"type": "keyword"}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -216,15 +334,26 @@ class FeatureStorage:
 
     def _doc_to_feature(self, doc: Dict[str, Any]) -> Feature:
         """Convert Elasticsearch document to Feature object."""
+        # Handle content research data
+        content_research = None
+        if doc.get("content_research"):
+            try:
+                content_research = ContentResearch.parse_obj(doc["content_research"])
+            except Exception:
+                # If parsing fails, create empty ContentResearch
+                content_research = ContentResearch()
+        else:
+            content_research = ContentResearch()
+
         return Feature(
             id=doc["id"],
             name=doc["name"],
             description=doc["description"],
             benefits=doc.get("benefits", []),
-            documentation_links=doc.get("documentation_links", []),
+            documentation_links=doc.get("documentation_links") or [],
             theme=Theme(doc["theme"]) if doc.get("theme") else None,
             domain=Domain(doc["domain"]),
-            scraped_content=doc.get("scraped_content"),
             created_at=datetime.fromisoformat(doc["created_at"]),
-            updated_at=datetime.fromisoformat(doc["updated_at"])
+            updated_at=datetime.fromisoformat(doc["updated_at"]),
+            content_research=content_research
         )

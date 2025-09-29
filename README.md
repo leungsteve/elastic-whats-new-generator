@@ -8,16 +8,41 @@ Transform quarterly Elastic feature releases into compelling presentations and h
 
 ## 🏗️ Architecture
 
+### Two-Stage LLM Architecture
+
 ```
-Feature Input → LLM Classification → Content Generation → Output
-     ↓              ↓                    ↓              ↓
-Domain Routing → Theme Organization → Template Rendering → Presentations & Labs
+Stage 1: Content Extraction & Caching
+┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────┐
+│ Scrape  │ -> │   LLM   │ -> │  Cache  │ -> │  Ready  │
+│  Docs   │    │Extract  │    │   in    │    │   for   │
+│         │    │Metadata │    │   ES    │    │  Reuse  │
+└─────────┘    └─────────┘    └─────────┘    └─────────┘
+
+Stage 2: Presentation Generation
+┌─────────┐    ┌─────────┐    ┌─────────┐
+│  Load   │ -> │   LLM   │ -> │  7-Slide│
+│ Cached  │    │Generate │    │   Pres  │
+│ Content │    │  Pres   │    │w/ Tracks│
+└─────────┘    └─────────┘    └─────────┘
 ```
+
+**Benefits:**
+- ✅ Extract once, generate many presentations
+- ✅ 90%+ reduction in LLM API calls
+- ✅ Fast presentation generation (seconds vs. minutes)
+- ✅ Consistent quality across all outputs
+
+### Multi-Provider LLM Support
+- **OpenAI** (gpt-4o, gpt-4o-mini) - Default, cost-effective
+- **Google Gemini** (gemini-1.5-flash) - Fast alternative
+- **Anthropic Claude** (claude-3-sonnet) - High-quality fallback
+- **Proxy Support** - Custom API gateways and Claude Code Max
+- **Auto-Fallback** - Automatic provider selection based on availability
 
 ### Multi-Domain Support
 - **Individual Domains**: Search, Observability, Security
 - **Unified Platform**: Cross-domain storytelling and value propositions
-- **Flexible LLM Integration**: Claude, OpenAI, with smart fallback
+- **Customizable Prompts**: Configure LLM behavior via YAML
 
 ## 🚀 Features
 
@@ -94,6 +119,33 @@ The system now includes specialized API endpoints for advanced storytelling feat
 - **Business Impact Integration**: ROI projections and value drivers embedded in presentations
 - **Competitive Positioning**: Market analysis and differentiation messaging
 - **Customer Story Research**: Real-world success stories with quantified outcomes
+
+## 🎨 Customizable LLM Prompts
+
+**NEW**: Customize how presentations and labs are generated!
+
+Edit `config/llm_prompts.yaml` to control:
+- Presentation structure and tone
+- Talk track detail level
+- Technical vs. business focus
+- Slide count and narrative style
+- Lab difficulty and format
+
+**Example customizations:**
+```yaml
+presentation_generator:
+  system_prompt: |
+    Create executive-level presentations
+    Focus on ROI and business outcomes
+    Minimize technical jargon
+```
+
+Changes require server restart. See `config/README.md` for full guide.
+
+**Documentation:**
+- [LLM Architecture](docs/architecture/llm-architecture.md) - Complete LLM integration guide
+- [Prompt Customization](config/README.md) - How to customize prompts
+- [Content Research](docs/architecture/content-research.md) - Two-stage architecture details
 
 ## 📋 Requirements
 

@@ -17,8 +17,12 @@ import tempfile
 import shutil
 import zipfile
 import uvicorn
+import logging
 from elasticsearch import Elasticsearch
 from dotenv import load_dotenv
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 # Load environment variables from .env file
 load_dotenv()
@@ -29,12 +33,26 @@ from src.core.classifier import FeatureClassifier
 from src.core.generators.content_generator import ContentGenerator
 from src.core.generators.presentation_generator import PresentationGenerator
 from src.core.generators.unified_presentation_generator import UnifiedPresentationGenerator
+from src.core.generators.llm_presentation_generator import LLMPresentationGenerator
 from src.integrations.web_scraper import WebScraper
 from src.integrations.instruqt_exporter import InstruqtExporter
 from src.integrations.markdown_exporter import MarkdownExporter, MarkdownFormat
 from src.integrations.content_research_service import ContentResearchService, ContentResearchConfig
 from src.core.storytelling import StoryArcPlanner, TalkTrackGenerator, NarrativeFlowAnalyzer
 from src.integrations.customer_story_research import CustomerStoryResearcher, BusinessValueCalculator
+
+# Unified LLM client for multi-provider support (OpenAI, Gemini, Claude)
+try:
+    from src.integrations.unified_llm_client import UnifiedLLMClient
+    import os
+    # Initialize unified LLM client (auto-selects provider based on available API keys)
+    # Use model from environment or default based on provider
+    llm_model = os.getenv("LLM_MODEL")  # Override default model if needed
+    llm_client = UnifiedLLMClient(model=llm_model) if llm_model else UnifiedLLMClient()
+    print(f"LLM client initialized: {llm_client.get_provider_info()}")
+except Exception as e:
+    print(f"LLM client not available: {e}")
+    llm_client = None
 
 # Optional imports
 try:
@@ -83,9 +101,15 @@ narrative_flow_analyzer = NarrativeFlowAnalyzer()
 customer_story_researcher = CustomerStoryResearcher()
 business_value_calculator = BusinessValueCalculator()
 
-# Content research service
+# Content research service with unified LLM client integration
 content_research_config = ContentResearchConfig()
-content_research_service = ContentResearchService(config=content_research_config)
+content_research_service = ContentResearchService(
+    config=content_research_config,
+    claude_client=llm_client  # Pass unified LLM client for extraction
+)
+
+# LLM presentation generator (Stage 2 of two-stage LLM architecture)
+llm_presentation_generator = LLMPresentationGenerator(llm_client) if llm_client else None
 
 # Dependency for Elasticsearch (in production, configure with settings)
 def get_es_client():
@@ -694,13 +718,40 @@ async def generate_complete_presentation(
         raise HTTPException(status_code=404, detail="No features found")
 
     try:
-        # Generate storytelling components if enabled
-        story_arc = None
-        talk_tracks = []
-        customer_stories = []
+        # Check if we should use LLM presentation generation
+        use_llm_generation = (
+            llm_presentation_generator is not None and
+            llm_presentation_generator.can_generate_presentation(features)
+        )
 
-        if request.storytelling_enabled:
-            # Create ContentGenerationRequest for story arc planning
+        if use_llm_generation:
+            # NEW: Use LLM-powered presentation generation (Stage 2)
+            logger.info("Using LLM-powered presentation generation with cached extracted content")
+
+            presentation_dict = llm_presentation_generator.generate_presentation(
+                features=features,
+                domain=request.domain,
+                audience=request.audience,
+                narrative_style=request.narrative_style,
+                technical_depth=request.technical_depth,
+                slide_count=7,
+                quarter=request.quarter or "Q1-2025"
+            )
+
+            # Extract story arc from presentation
+            story_arc = presentation_dict.get("story_arc")
+            customer_stories = []  # LLM may include these inline
+
+        else:
+            # LEGACY: Use existing content generator (regex-based extraction)
+            logger.info("Using legacy content generation (features lack LLM-extracted content)")
+
+            # Generate storytelling components if enabled
+            story_arc = None
+            talk_tracks = []
+            customer_stories = []
+
+            # Create ContentGenerationRequest (always needed for content generation)
             content_request = StorytellingContentGenerationRequest(
                 features=features,
                 domain=request.domain,
@@ -714,51 +765,70 @@ async def generate_complete_presentation(
                 competitive_positioning=request.competitive_positioning
             )
 
-            # Generate story arc
-            story_arc = story_arc_planner.create_story_arc(
+            if request.storytelling_enabled:
+                # Generate story arc
+                story_arc = story_arc_planner.create_story_arc(
+                    features=features,
+                    domain=request.domain,
+                    request=content_request
+                )
+
+                # Generate customer stories if requested
+                if request.include_customer_stories:
+                    for feature in features[:3]:  # Limit to 3 features for performance
+                        feature_stories = await customer_story_researcher.research_customer_stories(
+                            feature=feature,
+                            max_stories=1
+                        )
+                        customer_stories.extend(feature_stories)
+
+            # Use enhanced content generator with storytelling
+            presentation_dict = content_generator.generate_complete_presentation(
                 features=features,
-                domain=request.domain,
                 request=content_request
             )
 
-            # Generate customer stories if requested
-            if request.include_customer_stories:
-                for feature in features[:3]:  # Limit to 3 features for performance
-                    feature_stories = await customer_story_researcher.research_customer_stories(
-                        feature=feature,
-                        max_stories=1
-                    )
-                    customer_stories.extend(feature_stories)
-
-        # Use enhanced content generator with storytelling
-        presentation = content_generator.generate_complete_presentation(
-            features=features,
-            request=content_request
-        )
-
         # Convert to API response format
         slides_data = []
-        for slide in presentation.slides:
-            slides_data.append({
-                "title": slide.title,
-                "subtitle": slide.subtitle,
-                "content": slide.content,
-                "business_value": slide.business_value,
-                "theme": slide.theme.value,
-                "speaker_notes": slide.speaker_notes
-            })
+        for slide in presentation_dict["slides"]:
+            # Handle both dict (from LLM) and object (from legacy generator)
+            if isinstance(slide, dict):
+                slides_data.append({
+                    "title": slide.get("title", ""),
+                    "subtitle": slide.get("subtitle"),
+                    "content": slide.get("content", ""),
+                    "business_value": slide.get("business_value", ""),
+                    "theme": slide.get("theme", "ai_innovation"),
+                    "speaker_notes": slide.get("speaker_notes")
+                })
+            else:
+                slides_data.append({
+                    "title": slide.title,
+                    "subtitle": slide.subtitle,
+                    "content": slide.content,
+                    "business_value": slide.business_value,
+                    "theme": slide.theme.value,
+                    "speaker_notes": slide.speaker_notes if hasattr(slide, 'speaker_notes') else None
+                })
 
         # Build response with storytelling components
+        # Handle featured_themes - can be strings (from LLM) or enum objects (from legacy)
+        featured_themes = presentation_dict.get("featured_themes", [])
+        if featured_themes and hasattr(featured_themes[0], 'value'):
+            # Legacy format - enum objects
+            featured_themes = [theme.value for theme in featured_themes]
+        # else: already strings from LLM
+
         response_data = {
             "presentation": {
-                "id": presentation.id,
-                "title": presentation.title,
-                "domain": presentation.domain.value,
-                "quarter": presentation.quarter,
+                "id": f"{request.domain.value}-presentation-{request.quarter}",
+                "title": f"{request.domain.value.title()} Innovation - {request.quarter}",
+                "domain": request.domain.value,
+                "quarter": request.quarter,
                 "slides": slides_data,
-                "featured_themes": [theme.value for theme in presentation.featured_themes],
-                "feature_ids": presentation.feature_ids,
-                "generated_at": presentation.generated_at.isoformat()
+                "featured_themes": featured_themes,
+                "feature_ids": presentation_dict.get("feature_ids", []),
+                "generated_at": datetime.now(timezone.utc).isoformat()
             },
             "metadata": {
                 "slide_count": len(slides_data),
@@ -771,18 +841,25 @@ async def generate_complete_presentation(
         # Add storytelling components if enabled
         if request.storytelling_enabled:
             if story_arc:
-                response_data["story_arc"] = {
-                    "narrative_style": story_arc.narrative_style,
-                    "positions": [
-                        {
-                            "position": pos.position.value,
-                            "slide_number": pos.slide_number,
-                            "summary": pos.summary,
-                            "key_message": pos.key_message,
-                            "emotional_tone": pos.emotional_tone
-                        } for pos in story_arc.positions
-                    ]
-                }
+                # Handle both dict (from LLM) and object (from legacy)
+                if isinstance(story_arc, dict):
+                    response_data["story_arc"] = {
+                        "narrative_style": request.narrative_style,
+                        "opening_hook": story_arc.get('opening_hook', ''),
+                        "central_theme": story_arc.get('central_theme', ''),
+                        "narrative_thread": story_arc.get('narrative_thread', ''),
+                        "resolution_message": story_arc.get('resolution_message', ''),
+                        "call_to_action": story_arc.get('call_to_action', '')
+                    }
+                else:
+                    response_data["story_arc"] = {
+                        "narrative_style": request.narrative_style,
+                        "opening_hook": getattr(story_arc, 'opening_hook', ''),
+                        "central_theme": getattr(story_arc, 'central_theme', ''),
+                        "narrative_thread": getattr(story_arc, 'narrative_thread', ''),
+                        "resolution_message": getattr(story_arc, 'resolution_message', ''),
+                        "call_to_action": getattr(story_arc, 'call_to_action', '')
+                    }
 
             if customer_stories:
                 response_data["customer_stories"] = [
@@ -798,16 +875,9 @@ async def generate_complete_presentation(
                 ]
 
             # Add talk tracks from the presentation if available
-            if hasattr(presentation, 'talk_tracks') and presentation.talk_tracks:
-                response_data["talk_tracks"] = [
-                    {
-                        "slide_number": track.slide_number,
-                        "slide_title": track.slide_title,
-                        "speaker_notes": track.speaker_notes,
-                        "timing_minutes": track.timing_minutes,
-                        "key_transitions": track.key_transitions
-                    } for track in presentation.talk_tracks
-                ]
+            # Talk tracks are embedded in slides now via talk_track field
+            # No separate talk_tracks list in presentation_dict format
+            pass
 
         return response_data
     except Exception as e:
@@ -1397,11 +1467,12 @@ async def trigger_content_research(
                 "last_updated": feature.content_research.last_updated.isoformat()
             }
 
-        # Initialize content research service with AI and ES clients
+        # Initialize content research service with AI, ES, and unified LLM client
         research_service = ContentResearchService(
             config=content_research_config,
             ai_client=content_generator,  # Reuse existing AI client
-            elasticsearch_client=es_client
+            elasticsearch_client=es_client,
+            claude_client=llm_client  # Add unified LLM client for extraction
         )
 
         # Trigger research (this would normally be async/background)
@@ -1574,7 +1645,7 @@ async def research_customer_stories(
 
     try:
         # Get the feature
-        feature = await feature_storage.get_feature(feature_id)
+        feature = feature_storage.get_by_id(feature_id)
         if not feature:
             raise HTTPException(status_code=404, detail="Feature not found")
 
@@ -1619,7 +1690,7 @@ async def calculate_business_value(
         # Get all features
         features = []
         for feature_id in request.feature_ids:
-            feature = await feature_storage.get_feature(feature_id)
+            feature = feature_storage.get_by_id(feature_id)
             if feature:
                 features.append(feature)
 
@@ -1664,7 +1735,7 @@ async def analyze_competitive_positioning(
 
     try:
         # Get the feature
-        feature = await feature_storage.get_feature(feature_id)
+        feature = feature_storage.get_by_id(feature_id)
         if not feature:
             raise HTTPException(status_code=404, detail="Feature not found")
 
@@ -1708,7 +1779,7 @@ async def generate_complete_storytelling_presentation(
         # Get all features
         features = []
         for feature_id in request.feature_ids:
-            feature = await feature_storage.get_feature(feature_id)
+            feature = feature_storage.get_by_id(feature_id)
             if feature:
                 features.append(feature)
 
@@ -1743,11 +1814,17 @@ async def generate_complete_storytelling_presentation(
 
         if request.storytelling_enabled:
             # 1. Create Story Arc
-            content_request = ContentGenerationRequest(
+            from src.core.models import ContentGenerationRequest as StorytellingContentRequest
+            content_request = StorytellingContentRequest(
+                features=features,
                 domain=request.domain,
+                content_type="presentation",
                 audience=request.audience,
                 narrative_style=request.narrative_style,
-                technical_depth=request.technical_depth
+                technical_depth=request.technical_depth,
+                storytelling_enabled=True,
+                include_customer_stories=request.include_customer_stories,
+                competitive_positioning=request.competitive_positioning
             )
 
             story_arc = story_arc_planner.create_story_arc(features, request.domain, content_request)
@@ -1762,7 +1839,7 @@ async def generate_complete_storytelling_presentation(
             if request.include_customer_stories:
                 for feature in features[:3]:  # Limit to first 3 features for performance
                     try:
-                        customer_stories = await customer_story_researcher.research_customer_stories(feature, count=2)
+                        customer_stories = await customer_story_researcher.research_customer_stories(feature, max_stories=2)
                         business_impact = await customer_story_researcher.research_business_impact(feature)
 
                         presentation_data["customer_stories"].append({
@@ -1809,7 +1886,7 @@ async def generate_complete_storytelling_presentation(
         unified_generator = UnifiedPresentationGenerator()
 
         # Generate the main content
-        slides_content = await unified_generator.generate_unified_presentation(
+        slides_content = unified_generator.generate_unified_presentation(
             features,
             quarter=request.quarter,
             audience=request.audience
@@ -1817,14 +1894,16 @@ async def generate_complete_storytelling_presentation(
 
         # Enhance slides with storytelling elements
         enhanced_slides = []
-        for i, slide in enumerate(slides_content.get("slides", [])):
+        slides_list = slides_content.slides if hasattr(slides_content, 'slides') else []
+        for i, slide in enumerate(slides_list):
             enhanced_slide = {
                 "slide_number": i + 1,
-                "title": slide.get("title", f"Slide {i + 1}"),
-                "content": slide.get("content", ""),
-                "talking_points": slide.get("talking_points", []),
-                "story_position": presentation_data["story_arc"].get("positions", ["introduction"])[min(i, len(presentation_data["story_arc"].get("positions", [])) - 1)],
-                "estimated_duration": slide.get("duration", 2.5)
+                "title": getattr(slide, 'title', f"Slide {i + 1}"),
+                "content": getattr(slide, 'content', ""),
+                "business_value": getattr(slide, 'business_value', ""),
+                "theme": getattr(slide, 'theme', None),
+                "story_position": presentation_data["story_arc"].get("positions", ["introduction"])[min(i, len(presentation_data["story_arc"].get("positions", [])) - 1)] if presentation_data["story_arc"] else "introduction",
+                "estimated_duration": 2.5
             }
 
             # Add storytelling enhancements if enabled

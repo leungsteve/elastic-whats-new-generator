@@ -182,8 +182,146 @@ class ContentGenerator:
 
         return f"{primary_benefit} while {theme_context[theme]}"
 
+    def _extract_structured_info_from_scraped_content(self, content: str) -> dict:
+        """
+        Extract structured information from scraped documentation content.
+        Uses intelligent parsing to identify use cases, capabilities, and requirements.
+        """
+        import re
+
+        result = {
+            'use_cases': [],
+            'capabilities': [],
+            'prerequisites': []
+        }
+
+        # Extract use cases - look for common patterns
+        use_case_keywords = ['use case', 'common use', 'applications include', 'used for']
+        for keyword in use_case_keywords:
+            if keyword in content.lower():
+                # Find the section
+                start = content.lower().find(keyword)
+                # Get next 600 characters
+                section = content[start:start + 600]
+
+                # Split into sentences and look for list items
+                # Pattern: capture phrases between colons and periods, or after keywords
+                sentences = re.split(r'[.]\s+', section)
+                for sentence in sentences[:10]:
+                    # Clean sentence
+                    clean = sentence.strip()
+                    # Look for capitalized phrases that look like use cases
+                    if 20 < len(clean) < 100:
+                        # Remove the keyword prefix
+                        for kw in use_case_keywords:
+                            clean = clean.replace(kw, '').replace(kw.title(), '')
+                        clean = clean.strip(':').strip()
+
+                        # If it starts with a capital and looks like a use case
+                        if clean and clean[0].isupper() and not clean.startswith('The '):
+                            result['use_cases'].append(clean)
+                            if len(result['use_cases']) >= 5:
+                                break
+                break
+
+        # If no use cases found with that method, try parsing space-separated capitalized items
+        if not result['use_cases'] and 'include:' in content[:2000].lower():
+            # Find text after "include:"
+            start = content.lower().find('include:')
+            section = content[start:start + 500]
+
+            # Extract capitalized multi-word phrases (like "Search Semantic text search")
+            # This handles format: "Word1 word2 word3 Word4 word5"
+            words = section.split()
+            current_phrase = []
+            phrases = []
+
+            for i, word in enumerate(words):
+                # If word starts with capital, it might start a new item
+                if word and word[0].isupper() and len(word) > 2:
+                    # Save previous phrase if it exists and is reasonable length
+                    if current_phrase:
+                        phrase = ' '.join(current_phrase)
+                        if 10 < len(phrase) < 60:
+                            phrases.append(phrase)
+                    # Start new phrase
+                    current_phrase = [word]
+                elif current_phrase and word and word[0].islower():
+                    # Continue current phrase with lowercase words
+                    current_phrase.append(word)
+                    # But limit phrase length
+                    if len(current_phrase) > 6:
+                        phrase = ' '.join(current_phrase)
+                        if 10 < len(phrase) < 60:
+                            phrases.append(phrase)
+                        current_phrase = []
+
+            # Add last phrase
+            if current_phrase:
+                phrase = ' '.join(current_phrase)
+                if 10 < len(phrase) < 60:
+                    phrases.append(phrase)
+
+            result['use_cases'] = phrases[:6]
+
+        # Extract key capabilities - extract full sentences that describe what the feature does
+        capability_keywords = ['allows you', 'enables', 'provides', 'supports', 'offers', 'can act', 'makes it easy', 'helps you', 'handling']
+
+        # Split content into sentences more carefully
+        sentences = re.split(r'\.(?:\s+[A-Z]|$)', content[:2500])
+
+        for sentence in sentences[:15]:
+            sentence = sentence.strip() + '.'  # Add period back
+            # Look for informative sentences
+            for keyword in capability_keywords:
+                if keyword in sentence.lower():
+                    # Clean up sentence
+                    clean = sentence.strip()
+
+                    # Remove document-specific prefixes (but keep if result would be weird)
+                    for prefix in ['This guide ', 'This feature ']:
+                        if clean.startswith(prefix):
+                            clean = clean[len(prefix):]
+                            clean = clean[0].upper() + clean[1:] if clean else clean
+                            break
+
+                    # Capitalize first letter
+                    if clean and clean[0].islower():
+                        clean = clean[0].upper() + clean[1:]
+
+                    # Check if it's a good capability statement
+                    if 40 < len(clean) < 200 and clean[0].isupper():
+                        # Remove trailing period if it looks cut off
+                        if not clean.endswith(('.', '!', '?')):
+                            clean = clean.rstrip('.')
+
+                        result['capabilities'].append(clean)
+                        if len(result['capabilities']) >= 5:
+                            break
+                    break  # Only match one keyword per sentence
+
+            if len(result['capabilities']) >= 5:
+                break
+
+        # Extract prerequisites
+        if 'prerequisite' in content.lower() or 'requirement' in content.lower():
+            start = content.lower().find('prerequisite')
+            if start < 0:
+                start = content.lower().find('requirement')
+            if start >= 0:
+                section = content[start:start + 500]
+                # Look for bullet-like patterns or "must" statements
+                sentences = re.split(r'[.]\s+', section)
+                for sentence in sentences[:5]:
+                    if 'must' in sentence.lower() or 'require' in sentence.lower():
+                        clean = sentence.strip()
+                        if 25 < len(clean) < 120:
+                            result['prerequisites'].append(clean)
+
+        return result
+
     def _generate_slide_content_text(self, feature: Feature, theme: Theme) -> str:
-        """Generate the main slide content text."""
+        """Generate the main slide content text enriched with scraped research."""
         tagline = self._theme_taglines[theme]
 
         content_parts = [
@@ -192,6 +330,44 @@ class ContentGenerator:
             f"**What it is:** {feature.description}",
             ""
         ]
+
+        # Add rich content from scraped research if available
+        if (feature.content_research and
+            feature.content_research.primary_sources and
+            len(feature.content_research.primary_sources) > 0):
+
+            # Get the first primary source with actual content
+            for source in feature.content_research.primary_sources:
+                if source.content and len(source.content) > 200:
+                    # Use AI-powered extraction for richer results
+                    from src.integrations.ai_tools import extract_structured_content_with_ai
+                    extracted_info = extract_structured_content_with_ai(source.content, feature.name)
+
+                    # Add use cases if found
+                    if extracted_info.get('use_cases'):
+                        content_parts.extend([
+                            "**Common Use Cases:**",
+                            *[f"• {uc}" for uc in extracted_info['use_cases'][:5]],
+                            ""
+                        ])
+
+                    # Add key capabilities if found
+                    if extracted_info.get('key_capabilities'):
+                        content_parts.extend([
+                            "**Key Capabilities:**",
+                            *[f"• {cap}" for cap in extracted_info['key_capabilities'][:5]],
+                            ""
+                        ])
+
+                    # Add technical requirements if found
+                    if extracted_info.get('technical_requirements'):
+                        content_parts.extend([
+                            "**Technical Requirements:**",
+                            *[f"• {req}" for req in extracted_info['technical_requirements'][:3]],
+                            ""
+                        ])
+
+                    break  # Only use first source with content
 
         if feature.benefits:
             content_parts.extend([
@@ -382,6 +558,43 @@ class ContentGenerator:
             ""
         ])
 
+        # Add rich content from scraped research if available
+        if (feature.content_research and
+            feature.content_research.primary_sources and
+            len(feature.content_research.primary_sources) > 0):
+
+            # Get the first primary source with actual content
+            for source in feature.content_research.primary_sources:
+                if source.content and len(source.content) > 200:
+                    # Use AI-powered extraction for richer results
+                    from src.integrations.ai_tools import extract_structured_content_with_ai
+                    extracted_info = extract_structured_content_with_ai(source.content, feature.name)
+
+                    # Add use cases if found
+                    if extracted_info.get('use_cases'):
+                        content_parts.extend([
+                            "**Common Use Cases:**",
+                            *[f"• {uc}" for uc in extracted_info['use_cases'][:5]],
+                            ""
+                        ])
+
+                    # Add key capabilities if found
+                    if extracted_info.get('key_capabilities'):
+                        content_parts.extend([
+                            "**Key Capabilities:**",
+                            *[f"• {cap}" for cap in extracted_info['key_capabilities'][:5]],
+                            ""
+                        ])
+
+                    # Add technical requirements if found
+                    if extracted_info.get('technical_requirements'):
+                        content_parts.extend([
+                            "**Technical Requirements:**",
+                            *[f"• {req}" for req in extracted_info['technical_requirements'][:3]],
+                            ""
+                        ])
+                    break
+
         # Benefits with storytelling context
         if feature.benefits:
             content_parts.extend([
@@ -391,12 +604,38 @@ class ContentGenerator:
             ])
 
         # Technical insights if appropriate
-        if request.technical_depth in ["medium", "high"] and feature.content_research.extracted_content.key_concepts:
-            concepts = ", ".join(feature.content_research.extracted_content.key_concepts[:3])
-            content_parts.extend([
-                f"**Technical Foundation:** {concepts}",
-                ""
-            ])
+        if (request.technical_depth in ["medium", "high"] and
+            feature.content_research and
+            feature.content_research.primary_sources and
+            len(feature.content_research.primary_sources) > 0):
+
+            # Try to extract technical concepts from scraped content
+            for source in feature.content_research.primary_sources:
+                if source.content and len(source.content) > 100:
+                    # Look for prerequisites or technical requirements
+                    content_lower = source.content[:1000].lower()
+                    if "prerequisite" in content_lower or "requirement" in content_lower:
+                        content_parts.extend([
+                            "**Technical Requirements:**",
+                            ""
+                        ])
+                        lines = source.content[:1500].split('\n')
+                        reqs = []
+                        capture = False
+                        for line in lines:
+                            if "prerequisite" in line.lower() or "requirement" in line.lower():
+                                capture = True
+                                continue
+                            if capture and line.strip():
+                                clean_line = line.strip().lstrip('•-').strip()
+                                if 15 < len(clean_line) < 120 and not clean_line.startswith('#'):
+                                    reqs.append(f"• {clean_line}")
+                                    if len(reqs) >= 3:
+                                        break
+                        if reqs:
+                            content_parts.extend(reqs)
+                            content_parts.append("")
+                    break
 
         # Closing with story context
         content_parts.extend([

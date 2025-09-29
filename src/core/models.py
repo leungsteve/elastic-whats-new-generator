@@ -182,6 +182,31 @@ class ContentEmbeddings(BaseModel):
     full_documentation: Optional[ELSEREmbedding] = Field(None, description="Full documentation embedding")
 
 
+class LLMExtractedContent(BaseModel):
+    """Structured content extracted by LLM from scraped documentation.
+
+    This model represents the output of Stage 1 (Extraction Phase) where Claude
+    analyzes raw scraped content and extracts key structured information that will
+    be cached in Elasticsearch and used for presentation generation.
+    """
+
+    summary: str = Field(..., description="Concise feature summary (2-3 sentences)")
+    use_cases: List[str] = Field(default_factory=list, description="Common use cases and applications")
+    key_capabilities: List[str] = Field(default_factory=list, description="Core technical capabilities")
+    benefits: List[str] = Field(default_factory=list, description="Business and technical benefits")
+    technical_requirements: List[str] = Field(default_factory=list, description="Prerequisites and requirements")
+    target_audience: str = Field(default="developers", description="Primary target audience")
+    complexity_level: str = Field(default="intermediate", description="Technical complexity (beginner/intermediate/advanced)")
+    extracted_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="Extraction timestamp")
+    model_used: str = Field(default="claude-3-sonnet-20240229", description="LLM model used for extraction")
+
+    model_config = ConfigDict(
+        json_encoders={
+            datetime: lambda v: v.isoformat()
+        }
+    )
+
+
 class ContentResearch(BaseModel):
     """Comprehensive content research data for a feature."""
 
@@ -194,7 +219,10 @@ class ContentResearch(BaseModel):
     primary_sources: List[SourceContent] = Field(default_factory=list, description="Primary documentation sources")
     related_sources: List[SourceContent] = Field(default_factory=list, description="Related discovered sources")
 
-    # Processed content
+    # LLM-extracted structured content (Stage 1: Extraction Phase)
+    llm_extracted: Optional[LLMExtractedContent] = Field(None, description="LLM-extracted structured content for presentation generation")
+
+    # Processed content (legacy fields - may be deprecated in favor of llm_extracted)
     extracted_content: ExtractedContent = Field(default_factory=ExtractedContent)
     ai_insights: AIInsights = Field(default_factory=AIInsights)
 
