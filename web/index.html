@@ -17,6 +17,9 @@
                     <h1>Elastic What's New Generator</h1>
                 </div>
                 <div class="header-actions">
+                    <button class="btn btn-secondary" onclick="window.app.openPromptsViewer()" title="View LLM Prompts Configuration">
+                        <i class="fas fa-code"></i> View Prompts
+                    </button>
                     <button class="btn btn-primary" onclick="showAddFeatureModal()">
                         <i class="fas fa-plus"></i> Add Feature
                     </button>
@@ -276,6 +279,31 @@
                                     </select>
                                 </div>
                                 <div class="form-group">
+                                    <label for="lab-scenario-type">Scenario Type</label>
+                                    <select id="lab-scenario-type">
+                                        <option value="auto">Auto-detect from Features</option>
+                                        <option value="ecommerce">E-commerce / Retail</option>
+                                        <option value="observability">Production Monitoring</option>
+                                        <option value="security">Security / Threat Detection</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="lab-data-size">Sample Data Size</label>
+                                    <select id="lab-data-size">
+                                        <option value="demo">Demo (50-100 records)</option>
+                                        <option value="realistic" selected>Realistic (200-500 records)</option>
+                                        <option value="large">Large (1K-5K records)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="lab-technical-depth">Technical Depth</label>
+                                    <select id="lab-technical-depth">
+                                        <option value="low">Beginner Friendly</option>
+                                        <option value="medium" selected>Intermediate</option>
+                                        <option value="high">Advanced</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
                                     <label>
                                         <input type="checkbox" id="include-metadata" checked>
                                         Include Metadata
@@ -382,6 +410,83 @@
         </div>
     </div>
 
-    <script src="/static/app.js?v=10"></script>
+    <!-- LLM Prompts Viewer Modal -->
+    <div class="modal" id="prompts-viewer-modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2>🤖 LLM Prompts Configuration</h2>
+                <button class="close-btn" onclick="window.app.closePromptsViewer()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="prompts-info">
+                    <p><strong>Location:</strong> <code>config/llm_prompts.yaml</code></p>
+                    <p>These prompts control how presentations and labs are generated. To customize, edit the YAML file and restart the server.</p>
+                    <p><strong>Documentation:</strong> <a href="https://github.com/leungsteve/elastic-whats-new-generator/blob/main/config/README.md" target="_blank">config/README.md</a></p>
+                </div>
+
+                <div class="prompts-tabs">
+                    <button class="prompt-tab active" data-tab="presentation">Presentation Generator</button>
+                    <button class="prompt-tab" data-tab="extraction">Content Extractor</button>
+                    <button class="prompt-tab" data-tab="lab">Lab Generator</button>
+                </div>
+
+                <div class="prompt-content-container">
+                    <div class="prompt-section active" id="presentation-prompt-section">
+                        <h3>Presentation Generator Prompts</h3>
+                        <div class="prompt-block">
+                            <h4>System Prompt</h4>
+                            <div class="prompt-text-container">
+                                <pre id="presentation-system-prompt" class="prompt-text">Loading...</pre>
+                            </div>
+                        </div>
+                        <div class="prompt-block">
+                            <h4>User Prompt Template</h4>
+                            <div class="prompt-text-container">
+                                <pre id="presentation-user-prompt" class="prompt-text">Loading...</pre>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="prompt-section" id="extraction-prompt-section">
+                        <h3>Content Extractor Prompts</h3>
+                        <div class="prompt-block">
+                            <h4>System Prompt</h4>
+                            <div class="prompt-text-container">
+                                <pre id="extraction-system-prompt" class="prompt-text">Loading...</pre>
+                            </div>
+                        </div>
+                        <div class="prompt-block">
+                            <h4>User Prompt Template</h4>
+                            <div class="prompt-text-container">
+                                <pre id="extraction-user-prompt" class="prompt-text">Loading...</pre>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="prompt-section" id="lab-prompt-section">
+                        <h3>Lab Generator Prompts</h3>
+                        <div class="prompt-block">
+                            <h4>System Prompt</h4>
+                            <div class="prompt-text-container">
+                                <pre id="lab-system-prompt" class="prompt-text">Loading...</pre>
+                            </div>
+                        </div>
+                        <div class="prompt-block">
+                            <h4>User Prompt Template</h4>
+                            <div class="prompt-text-container">
+                                <pre id="lab-user-prompt" class="prompt-text">Loading...</pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="prompts-footer">
+                    <p><strong>Note:</strong> Prompts are read-only in the UI. To modify, edit <code>config/llm_prompts.yaml</code> and restart the server.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js?v=18"></script>
 </body>
 </html>

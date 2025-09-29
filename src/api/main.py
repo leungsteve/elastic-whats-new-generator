@@ -1189,11 +1189,64 @@ async def export_lab_markdown(
         if not features:
             raise HTTPException(status_code=404, detail="No features found")
 
-        # Generate lab instructions for each feature
-        lab_instructions = []
-        for feature in features:
-            lab_instruction = content_generator.generate_lab_instructions(feature)
-            lab_instructions.append(lab_instruction)
+        # Generate lab instructions using LLM
+        try:
+            from src.core.models import LabInstruction, DatasetTable, LabChallenge
+
+            # Extract optional parameters
+            scenario_type = getattr(request, 'scenario_type', 'auto')
+            data_size = getattr(request, 'data_size', 'demo')
+            technical_depth = getattr(request, 'technical_depth', 'medium')
+
+            # For now, generate separate labs for each feature
+            # TODO: Re-enable multi-feature unified labs after testing
+            if len(features) > 1:
+                logger.warning(f"Multi-feature labs not yet supported, generating separate labs for {len(features)} features")
+                lab_instructions = []
+                for feature in features:
+                    try:
+                        lab_instruction = content_generator.generate_lab_instructions(feature)
+                        lab_instructions.append(lab_instruction)
+                    except:
+                        pass
+            else:
+                # Single feature - LLM generation
+                lab_data = llm_client.generate_lab(
+                    features=features,
+                    domain=features[0].domain.value,
+                    scenario_type=scenario_type,
+                    data_size=data_size,
+                    technical_depth=technical_depth
+                )
+
+                lab_instruction = LabInstruction(
+                    title=lab_data.get('title', f"Hands-on Lab: {features[0].name}"),
+                    story_context=lab_data.get('story_context', ""),
+                    objective=lab_data.get('objective', ""),
+                    scenario=lab_data.get('scenario', lab_data.get('story_context', '')),
+                    feature_ids=[features[0].id],
+                    dataset_tables=[DatasetTable(**t) for t in lab_data.get('dataset_tables', [])],
+                    setup_commands=lab_data.get('setup_commands', []),
+                    challenges=[LabChallenge(**c) for c in lab_data.get('challenges', [])],
+                    setup_instructions=lab_data.get('setup_instructions', ''),
+                    steps=lab_data.get('steps', []),
+                    validation=lab_data.get('validation', ''),
+                    estimated_time=lab_data.get('estimated_time_minutes', 45),
+                    estimated_time_minutes=lab_data.get('estimated_time_minutes', 45),
+                    difficulty=lab_data.get('difficulty', 'intermediate')
+                )
+                lab_instructions = [lab_instruction]
+
+        except Exception as e:
+            logger.error(f"LLM lab generation failed: {e}, using fallback")
+            # Fallback to legacy generation
+            lab_instructions = []
+            for feature in features:
+                try:
+                    lab_instruction = content_generator.generate_lab_instructions(feature)
+                    lab_instructions.append(lab_instruction)
+                except:
+                    pass
 
         # Export to markdown
         if len(lab_instructions) == 1:
@@ -1280,8 +1333,79 @@ async def export_single_lab_markdown(
 
         feature = features[0]
 
-        # Generate lab instruction
-        lab_instruction = content_generator.generate_lab_instructions(feature)
+        # Generate lab instruction using LLM
+        try:
+            from src.core.models import LabInstruction, DatasetTable, LabChallenge
+
+            # Extract optional parameters from request
+            scenario_type = getattr(request, 'scenario_type', 'auto')
+            data_size = getattr(request, 'data_size', 'demo')
+            technical_depth = getattr(request, 'technical_depth', 'medium')
+
+            logger.info(f"Calling LLM lab generator for feature: {feature.name}, domain: {feature.domain.value}")
+
+            # Call LLM to generate lab
+            lab_data = llm_client.generate_lab(
+                features=[feature],
+                domain=feature.domain.value,
+                scenario_type=scenario_type,
+                data_size=data_size,
+                technical_depth=technical_depth
+            )
+
+            logger.info(f"LLM returned lab data with keys: {lab_data.keys() if isinstance(lab_data, dict) else 'NOT A DICT'}")
+
+            # Convert LLM response to LabInstruction model
+            lab_instruction = LabInstruction(
+                title=lab_data.get('title', f"Hands-on Lab: {feature.name}"),
+                story_context=lab_data.get('story_context', f"Learn how to use {feature.name}"),
+                objective=lab_data.get('objective', f"Master {feature.name} capabilities"),
+                scenario=lab_data.get('scenario', lab_data.get('story_context', '')),
+                feature_ids=[feature.id],
+                dataset_tables=[
+                    DatasetTable(**table) for table in lab_data.get('dataset_tables', [])
+                ] if 'dataset_tables' in lab_data else [],
+                setup_commands=lab_data.get('setup_commands', []),
+                challenges=[
+                    LabChallenge(**challenge) for challenge in lab_data.get('challenges', [])
+                ] if 'challenges' in lab_data else [],
+                setup_instructions=lab_data.get('setup_instructions', ''),
+                steps=lab_data.get('steps', []),
+                validation=lab_data.get('validation', ''),
+                estimated_time=lab_data.get('estimated_time_minutes', lab_data.get('estimated_time', 45)),
+                estimated_time_minutes=lab_data.get('estimated_time_minutes', 45),
+                difficulty=lab_data.get('difficulty', 'intermediate')
+            )
+            logger.info(f"LLM-generated lab: {lab_instruction.title}")
+
+        except AttributeError as e:
+            logger.error(f"AttributeError in LLM lab generation: {e}")
+            logger.error(f"Feature type: {type(feature)}, has id: {hasattr(feature, 'id')}, has name: {hasattr(feature, 'name')}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            # Fall through to fallback
+        except Exception as e:
+            logger.error(f"LLM lab generation failed: {e}, creating basic lab instruction")
+            # Fallback to basic template
+            from src.core.models import LabInstruction
+            lab_instruction = LabInstruction(
+                title=f"Hands-on Lab: {feature.name}",
+                story_context=f"In this lab, you'll explore {feature.name} and its capabilities.",
+                objective=f"Learn how to use {feature.name} in {feature.domain.value}",
+                scenario=f"In this lab, you'll explore {feature.name} and its capabilities.",
+                feature_ids=[feature.id],
+                setup_instructions="## Prerequisites\n- Elasticsearch 8.x or later\n- Kibana 8.x or later",
+                steps=[
+                    f"### Step 1: Understanding {feature.name}\n{feature.description}",
+                    f"### Step 2: Key Benefits\n" + "\n".join(f"- {b}" for b in feature.benefits[:3]) if feature.benefits else "Explore the feature capabilities",
+                    "### Step 3: Hands-on Exercise\nFollow the documentation to implement this feature in your environment.",
+                    "### Step 4: Verification\nTest the implementation and verify the expected behavior."
+                ],
+                validation="Feature is successfully implemented and working as expected",
+                estimated_time=30,
+                estimated_time_minutes=30,
+                difficulty="intermediate"
+            )
 
         # Export to markdown
         markdown_content = instruqt_exporter.export_lab_to_markdown(
@@ -1963,6 +2087,44 @@ async def generate_complete_storytelling_presentation(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Complete storytelling presentation generation failed: {e}")
+
+
+@app.get("/prompts/config")
+async def get_prompts_config():
+    """
+    Get the current LLM prompts configuration.
+    Returns the prompts from config/llm_prompts.yaml or defaults if not found.
+    """
+    try:
+        import yaml
+        from pathlib import Path
+
+        config_path = Path(__file__).parent.parent.parent / "config" / "llm_prompts.yaml"
+
+        if config_path.exists():
+            with open(config_path, 'r') as f:
+                prompts = yaml.safe_load(f)
+                return prompts
+        else:
+            return {
+                "message": "Using default prompts (config file not found)",
+                "config_path": str(config_path),
+                "presentation_generator": {
+                    "system_prompt": "Using built-in default prompts",
+                    "user_prompt": "Using built-in default prompts"
+                },
+                "content_extractor": {
+                    "system_prompt": "Using built-in default prompts",
+                    "user_prompt": "Using built-in default prompts"
+                },
+                "lab_generator": {
+                    "system_prompt": "Using built-in default prompts",
+                    "user_prompt": "Using built-in default prompts"
+                }
+            }
+    except Exception as e:
+        logger.error(f"Failed to load prompts config: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to load prompts configuration: {e}")
 
 
 # Development server runner

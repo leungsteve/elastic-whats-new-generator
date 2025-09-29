@@ -354,24 +354,64 @@ class SlideContent(BaseModel):
         return v.strip()
 
 
+class DatasetTable(BaseModel):
+    """Dataset table schema for lab exercises."""
+
+    name: str = Field(..., description="Table/index name")
+    description: str = Field(..., description="Table purpose")
+    fields: Dict[str, str] = Field(..., description="Field name → Elasticsearch field type mapping")
+    sample_count: int = Field(..., description="Number of sample records")
+    relationships: List[str] = Field(default_factory=list, description="Foreign key relationships (e.g., 'orders.customer_id')")
+
+
+class LabChallenge(BaseModel):
+    """Individual challenge/exercise in a lab."""
+
+    number: int = Field(..., description="Challenge number (1-7)")
+    title: str = Field(..., description="Challenge title")
+    description: str = Field(..., description="What to accomplish")
+    hint: Optional[str] = Field(None, description="Hint for solving")
+    solution: str = Field(..., description="Complete solution command")
+    expected_output: str = Field(..., description="Description of expected result")
+    feature_used: Optional[str] = Field(None, description="Primary feature demonstrated")
+
+
 class LabInstruction(BaseModel):
-    """Lab instruction content for hands-on exercises."""
+    """Lab instruction content for hands-on exercises with multi-feature support."""
 
     title: str = Field(..., description="Lab title")
+    story_context: str = Field(..., description="2-3 paragraph narrative setting up the scenario")
     objective: str = Field(..., description="Learning objective")
-    scenario: str = Field(..., description="Real-world scenario description")
-    setup_instructions: str = Field(..., description="Setup and preparation steps")
-    steps: List[str] = Field(..., description="Step-by-step instructions")
-    validation: str = Field(..., description="How to validate completion")
-    sample_data: Optional[Dict[str, Any]] = Field(None, description="Sample data configuration")
+    scenario: str = Field(..., description="Real-world scenario description (legacy field)")
+
+    # Multi-feature support
+    feature_ids: List[str] = Field(default_factory=list, description="Feature IDs covered in this lab")
+
+    # Enhanced dataset structure
+    dataset_tables: List[DatasetTable] = Field(default_factory=list, description="Multi-table dataset schema")
+    setup_commands: List[str] = Field(default_factory=list, description="Copy-paste ready setup commands (index creation, bulk data)")
+
+    # Challenge-based structure
+    challenges: List[LabChallenge] = Field(default_factory=list, description="Progressive challenges")
+
+    # Legacy fields (kept for backwards compatibility)
+    setup_instructions: str = Field(default="", description="Setup and preparation steps (legacy)")
+    steps: List[str] = Field(default_factory=list, description="Step-by-step instructions (legacy)")
+    validation: str = Field(default="", description="How to validate completion (legacy)")
+    sample_data: Optional[Dict[str, Any]] = Field(None, description="Sample data configuration (legacy)")
+
+    # Metadata
     estimated_time: Optional[int] = Field(None, description="Estimated completion time in minutes")
+    estimated_time_minutes: Optional[int] = Field(None, description="Alias for estimated_time")
     difficulty: Optional[str] = Field("intermediate", description="Difficulty level")
 
-    @field_validator('steps')
+    @field_validator('challenges', 'steps')
     @classmethod
-    def steps_must_not_be_empty(cls, v):
-        if not v or len(v) == 0:
-            raise ValueError('Lab must have at least one step')
+    def must_have_content(cls, v, info):
+        # Either challenges or steps must be provided
+        if info.field_name == 'challenges' and len(v) == 0:
+            # Check if steps exist (legacy mode)
+            return v
         return v
 
 

@@ -379,6 +379,12 @@ class ElasticGenerator {
             // Refresh the feature data to show updated research status
             setTimeout(() => this.loadFeatures(), 1000);
 
+            // If modal is currently open for this feature, refresh it
+            const modal = document.getElementById('content-research-modal');
+            if (modal && modal.dataset.featureId === featureId) {
+                setTimeout(() => this.viewContentResearch(featureId), 1500);
+            }
+
         } catch (error) {
             console.error('Content research failed:', error);
             this.showToast(`Content research failed: ${error.message}`, 'error');
@@ -405,13 +411,18 @@ class ElasticGenerator {
         const research = feature.content_research;
 
         const modalHtml = `
-            <div class="modal" id="content-research-modal">
+            <div class="modal" id="content-research-modal" data-feature-id="${feature.feature_id}">
                 <div class="modal-content large">
                     <div class="modal-header">
                         <h3>Content Research: ${feature.feature_name}</h3>
-                        <button class="close-btn" onclick="app.closeContentResearchModal()">
-                            <i class="fas fa-times"></i>
-                        </button>
+                        <div class="modal-header-actions">
+                            <button class="btn btn-secondary btn-small" onclick="app.triggerContentResearch('${feature.feature_id}', true)" title="Refresh research data">
+                                <i class="fas fa-refresh"></i> Refresh
+                            </button>
+                            <button class="close-btn" onclick="app.closeContentResearchModal()">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
                     </div>
                     <div class="modal-body">
                         <div class="research-tabs">
@@ -715,12 +726,21 @@ class ElasticGenerator {
 
     isTestFeature(feature) {
         // Check if feature is a test feature based on name and description
-        const testKeywords = ['test', 'testing', 'validation', 'pipeline', 'serverless persistence'];
+        // Only flag as test if contains specific test-related patterns
         const nameText = feature.name.toLowerCase();
         const descText = feature.description.toLowerCase();
 
-        const isTest = testKeywords.some(keyword =>
-            nameText.includes(keyword) || descText.includes(keyword)
+        // More specific patterns to avoid false positives
+        const testPatterns = [
+            /\btest\b/,                    // "test" as a whole word
+            /\btesting\b/,                  // "testing" as a whole word
+            /test feature/,                 // "test feature" phrase
+            /validation test/,              // "validation test" phrase
+            /serverless persistence/        // specific test feature name
+        ];
+
+        const isTest = testPatterns.some(pattern =>
+            pattern.test(nameText) || pattern.test(descText)
         );
 
         console.log(`Feature "${feature.name}" - Test: ${isTest}`);
@@ -749,6 +769,12 @@ class ElasticGenerator {
         const container = document.getElementById(containerId);
         let features = [...this.features];
 
+        // Preserve currently checked features before re-rendering
+        const checkedFeatures = new Set(
+            Array.from(container.querySelectorAll('input[type="checkbox"]:checked'))
+                .map(cb => cb.value)
+        );
+
         // Apply test feature filtering - hide test features by default
         const testToggle = document.getElementById('show-test-features');
         const showTestFeatures = testToggle ? testToggle.checked : false;
@@ -769,10 +795,10 @@ class ElasticGenerator {
         // Store features for search/sort
         container.dataset.allFeatures = JSON.stringify(features);
 
-        // Render as list
+        // Render as list, preserving checked state
         container.innerHTML = features.map(feature => `
             <div class="feature-list-item" data-feature-id="${feature.id}">
-                <input type="checkbox" value="${feature.id}" name="selected-features">
+                <input type="checkbox" value="${feature.id}" name="selected-features" ${checkedFeatures.has(feature.id) ? 'checked' : ''}>
                 <div class="feature-list-item-content">
                     <div class="feature-list-item-name">${feature.name}</div>
                     <div class="feature-list-item-meta">
@@ -892,23 +918,11 @@ class ElasticGenerator {
             });
 
             if (response.ok) {
-                const newFeature = await response.json();
-                this.features.push({
-                    id: newFeature.id,
-                    name: newFeature.name,
-                    description: newFeature.description,
-                    domain: newFeature.domain,
-                    theme: newFeature.theme,
-                    benefits: featureData.benefits,
-                    documentation_links: featureData.documentation_links,
-                    created_at: newFeature.created_at
-                });
-
-                this.renderFeatures();
-                this.updatePresentationFeatureSelector();
-                this.populateFeatureSelector('lab-features');
                 this.closeAddFeatureModal();
                 this.showToast('Feature added successfully!', 'success');
+
+                // Reload all features from server to get complete data
+                await this.loadFeatures();
             } else {
                 throw new Error('Failed to create feature');
             }
@@ -972,12 +986,12 @@ class ElasticGenerator {
 
                             <div class="form-group">
                                 <label for="edit-benefits">Benefits</label>
-                                <textarea id="edit-benefits" name="benefits" rows="3" placeholder="Enter benefits, one per line">${(feature.benefits || []).join('\\n')}</textarea>
+                                <textarea id="edit-benefits" name="benefits" rows="3" placeholder="Enter benefits, one per line">${(feature.benefits || []).join('\n')}</textarea>
                             </div>
 
                             <div class="form-group">
                                 <label for="edit-documentation-links">Documentation Links</label>
-                                <textarea id="edit-documentation-links" name="documentation_links" rows="3" placeholder="Enter URLs, one per line">${(feature.documentation_links || []).join('\\n')}</textarea>
+                                <textarea id="edit-documentation-links" name="documentation_links" rows="3" placeholder="Enter URLs, one per line">${(feature.documentation_links || []).join('\n')}</textarea>
                             </div>
                         </form>
                     </div>
@@ -1015,8 +1029,8 @@ class ElasticGenerator {
             const formData = new FormData(form);
 
             // Parse benefits and documentation links from textarea
-            const benefits = formData.get('benefits').split('\\n').map(b => b.trim()).filter(b => b.length > 0);
-            const documentationLinks = formData.get('documentation_links').split('\\n').map(l => l.trim()).filter(l => l.length > 0);
+            const benefits = formData.get('benefits').split('\n').map(b => b.trim()).filter(b => b.length > 0);
+            const documentationLinks = formData.get('documentation_links').split('\n').map(l => l.trim()).filter(l => l.length > 0);
 
             const updateData = {
                 name: formData.get('name'),
@@ -1287,30 +1301,12 @@ class ElasticGenerator {
             .map(cb => cb.value);
 
         // Handle feature selection for lab generation
-        let featureIds = selectedFeatures;
-        const validSampleFeatureIds = [
-            'bbq-001', 'acorn-001', 'agent-builder-001', 'cross-cluster-001',
-            'autoops-obs-001', 'apm-performance-001', 'ai-assistant-obs-001',
-            'siem-efficiency-001', 'managed-security-001', 'ml-security-001'
-        ];
-
-        if (featureIds.length === 0) {
-            // No features selected - use first valid sample feature
-            featureIds = [validSampleFeatureIds[0]];
-        } else {
-            // Check if selected features include invalid ones
-            const invalidFeatures = featureIds.filter(id => !validSampleFeatureIds.includes(id));
-            if (invalidFeatures.length > 0) {
-                this.showToast(`Warning: New features (${invalidFeatures.join(', ')}) may not work for lab generation. Using sample feature instead.`, 'warning');
-                // Use first valid feature instead
-                featureIds = [validSampleFeatureIds[0]];
-            }
-        }
-
-        if (featureIds.length === 0) {
-            this.showToast('No features available for lab generation', 'warning');
+        if (selectedFeatures.length === 0) {
+            this.showToast('Please select at least one feature for lab generation', 'warning');
             return;
         }
+
+        const featureIds = selectedFeatures;
 
         const requestData = {
             feature_ids: featureIds,
@@ -1318,11 +1314,14 @@ class ElasticGenerator {
             format_type: document.getElementById('lab-format').value,
             include_metadata: document.getElementById('include-metadata').checked,
             export_format: 'inline',
-            // Include storytelling features for enhanced lab experience
-            narrative_style: 'customer_journey', // Labs work well with customer journey approach
-            include_customer_stories: true, // Labs benefit from real-world scenarios
-            technical_depth: 'high', // Labs are typically technical
-            storytelling_enabled: true // Enable enhanced lab narratives
+            // Enhanced lab generation parameters
+            scenario_type: document.getElementById('lab-scenario-type').value,
+            data_size: document.getElementById('lab-data-size').value,
+            technical_depth: document.getElementById('lab-technical-depth').value,
+            // Legacy storytelling parameters (kept for compatibility)
+            narrative_style: 'customer_journey',
+            include_customer_stories: true,
+            storytelling_enabled: true
         };
 
         try {
@@ -1406,7 +1405,10 @@ class ElasticGenerator {
                 track_title: document.getElementById('workshop-title').value,
                 format_type: document.getElementById('lab-format').value,
                 include_metadata: document.getElementById('include-metadata').checked,
-                export_format: 'file'
+                export_format: 'file',
+                scenario_type: document.getElementById('lab-scenario-type').value,
+                data_size: document.getElementById('lab-data-size').value,
+                technical_depth: document.getElementById('lab-technical-depth').value
             };
 
             try {
@@ -1465,6 +1467,59 @@ class ElasticGenerator {
                 </div>
             </div>
         `;
+    }
+
+    // LLM Prompts Viewer
+    async openPromptsViewer() {
+        const modal = document.getElementById('prompts-viewer-modal');
+        modal.style.display = 'flex';
+
+        // Setup tab switching
+        const tabs = document.querySelectorAll('.prompt-tab');
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Update active tab
+                tabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+
+                // Update active section
+                const sections = document.querySelectorAll('.prompt-section');
+                sections.forEach(s => s.classList.remove('active'));
+                document.getElementById(`${tab.dataset.tab}-prompt-section`).classList.add('active');
+            });
+        });
+
+        // Load prompts from server
+        try {
+            const response = await fetch(`${this.apiBase}/prompts/config`);
+            const prompts = await response.json();
+
+            // Populate presentation prompts
+            document.getElementById('presentation-system-prompt').textContent =
+                prompts.presentation_generator?.system_prompt || 'Using default prompts (config file not found)';
+            document.getElementById('presentation-user-prompt').textContent =
+                prompts.presentation_generator?.user_prompt || 'Using default prompts (config file not found)';
+
+            // Populate extraction prompts
+            document.getElementById('extraction-system-prompt').textContent =
+                prompts.content_extractor?.system_prompt || 'Using default prompts (config file not found)';
+            document.getElementById('extraction-user-prompt').textContent =
+                prompts.content_extractor?.user_prompt || 'Using default prompts (config file not found)';
+
+            // Populate lab prompts
+            document.getElementById('lab-system-prompt').textContent =
+                prompts.lab_generator?.system_prompt || 'Using default prompts (config file not found)';
+            document.getElementById('lab-user-prompt').textContent =
+                prompts.lab_generator?.user_prompt || 'Using default prompts (config file not found)';
+
+        } catch (error) {
+            console.error('Failed to load prompts:', error);
+            this.showToast('Failed to load prompts configuration', 'error');
+        }
+    }
+
+    closePromptsViewer() {
+        document.getElementById('prompts-viewer-modal').style.display = 'none';
     }
 
     // Utility Methods

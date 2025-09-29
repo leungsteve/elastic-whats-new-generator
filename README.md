@@ -65,6 +65,14 @@ Stage 2: Presentation Generation
   - **Enhanced Previews**: Story arc overview, talk track previews, customer story summaries
   - **Cross-Tab Functionality**: Consistent filtering across Features, Presentations, and Labs tabs
 
+- **Story-Driven Lab Generation** 🧪:
+  - **Realistic Business Scenarios**: Compelling narratives (e.g., "Black Friday retail analysis")
+  - **Multi-Table Datasets**: Related tables with foreign key relationships (customers, orders, products)
+  - **Copy-Paste Ready Commands**: Kibana Dev Tools commands that work immediately
+  - **Progressive Challenges**: 5-7 exercises building from simple to complex
+  - **Complete Solutions**: Full ES|QL commands with explanations and expected outputs
+  - **Configurable Parameters**: Scenario type (e-commerce/observability/security), data size (demo/realistic/large), technical depth
+
 - **Multi-Domain Content Generation**:
   - Domain-specific presentations (Search/Observability/Security)
   - Unified platform presentations showing cross-domain synergies
@@ -78,10 +86,14 @@ Stage 2: Presentation Generation
 
 ### Output Formats
 - **Presentations**: Markdown slides with advanced storytelling and comprehensive talk tracks
-- **Lab Instructions**: Step-by-step Instruqt workshops with customer scenarios
+- **Lab Instructions**: Story-driven Instruqt workshops with:
+  - Multi-table dataset schemas with relationships
+  - Copy-paste ready setup commands (create indices, bulk load data)
+  - Progressive challenges (5-7 exercises)
+  - Complete solutions with ES|QL commands and expected outputs
 - **Customer Stories**: Real-world success stories with business impact metrics
 - **Speaker Notes**: Detailed talk tracks with timing and transition guidance
-- **Sample Data**: Realistic datasets for hands-on exercises
+- **Sample Data**: Realistic datasets (50-5000 records) for hands-on exercises
 
 ## 🎯 Advanced Storytelling APIs
 

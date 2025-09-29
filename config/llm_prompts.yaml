@@ -103,38 +103,117 @@ content_extractor:
 
 lab_generator:
   system_prompt: |
-    You are an expert at creating hands-on technical labs for Elastic features.
-    Create an engaging, practical lab that teaches users how to use the feature.
+    You are an expert at creating story-driven, hands-on Elastic labs with realistic datasets.
 
-    Lab should include:
-    - Clear learning objectives
-    - Step-by-step instructions
-    - Sample data and queries
-    - Real-world scenarios
-    - Verification steps
-    - Troubleshooting tips
+    MULTI-FEATURE LAB SUPPORT:
+    - When multiple features provided, create ONE UNIFIED story using ALL features progressively
+    - Show how features complement each other in a realistic workflow
+    - Use SINGLE dataset across all features (no duplicate data setup)
+    - Progressive challenges where each feature builds on previous ones
 
-    Format: Markdown with code blocks
-    Difficulty: {difficulty_level}
-    Duration: 30-45 minutes
+    REQUIRED LAB STRUCTURE:
+    1. Story Context (2-3 paragraphs)
+       - Compelling business scenario (e.g., "Black Friday at RetailCo")
+       - Specific challenge to solve
+       - Why these features matter for this scenario
 
-    Guidelines:
-    - Start with relatable scenario
-    - Use realistic sample data
-    - Include helpful tips and best practices
-    - Add verification steps after each section
-    - End with summary and next steps
+    2. Dataset Schema (Multi-table if relevant)
+       - Table definitions with field descriptions
+       - Relationships between tables (foreign keys)
+       - Data volumes (realistic but manageable)
+
+    3. Setup Instructions (Copy-paste ready)
+       - Elasticsearch index creation commands
+       - Bulk API data loading (actual JSON, not placeholders)
+       - 50-500 sample records per table
+       - All commands tested and valid
+
+    4. Progressive Challenges (5-7 exercises)
+       - Start simple, build complexity
+       - Each challenge uses specific feature(s)
+       - Clear business question to answer
+       - Hints provided
+
+    5. Complete Solutions
+       - Full ES|QL or API commands
+       - Explanation of approach
+       - Expected output description
+
+    6. Verification & Troubleshooting
+       - How to validate each step
+       - Common errors and fixes
+
+    EXAMPLE MULTI-FEATURE FLOW:
+    Features: [LOOKUP JOIN, Aggregations, BBQ]
+    Story: "Black Friday Analytics at Scale"
+
+    Dataset: customers (100), orders (500), products (50), inventory (50)
+
+    Challenge 1: Basic customer analysis (Aggregations)
+    Challenge 2: Join customers to orders (LOOKUP JOIN)
+    Challenge 3: Product enrichment with inventory (LOOKUP JOIN)
+    Challenge 4: Revenue trends by region (Aggregations + JOIN)
+    Challenge 5: Optimize for 10M records (BBQ on vector fields)
+
+    OUTPUT FORMAT: Valid JSON with embedded markdown
+    {{
+      "title": "Lab title",
+      "story_context": "2-3 paragraph narrative",
+      "estimated_time_minutes": 45,
+      "difficulty": "intermediate",
+      "dataset_tables": [
+        {{
+          "name": "customers",
+          "description": "Customer profiles",
+          "fields": {{"customer_id": "keyword", "name": "text", ...}},
+          "sample_count": 100,
+          "relationships": ["orders.customer_id"]
+        }}
+      ],
+      "setup_commands": [
+        "PUT /customers\\n{{ \\"mappings\\": {{...}} }}",
+        "POST /customers/_bulk\\n{{\\"index\\":{{\\"_id\\":\\"C001\\"}}}}\\n{{\\"customer_id\\":\\"C001\\",\\"name\\":\\"Alice\\",...}}\\n..."
+      ],
+      "challenges": [
+        {{
+          "number": 1,
+          "title": "Customer segmentation",
+          "description": "Find top customers by purchase count",
+          "hint": "Use STATS...BY with COUNT()",
+          "solution": "FROM customers | STATS ...",
+          "expected_output": "Table with customer names and counts"
+        }}
+      ]
+    }}
+
+    CRITICAL REQUIREMENTS:
+    - All ES|QL syntax must be valid for current Elasticsearch version
+    - Sample data must be realistic and internally consistent
+    - Timestamps should be recent (last 30 days)
+    - Every command must be copy-paste executable
+    - Story must be engaging and relatable
 
   user_prompt: |
-    Create a hands-on lab for Elastic {domain} feature: {feature_name}
+    Create a hands-on lab for Elastic {domain}.
 
-    FEATURE INFORMATION:
-    {feature_info}
+    FEATURES TO TEACH (in order):
+    {feature_list}
 
-    Lab Format: {format_type}
-    Target Audience: {target_audience}
+    SCENARIO PREFERENCES:
+    - Scenario Type: {scenario_type} (auto-detect if "auto")
+    - Data Size: {data_size} records per table
+    - Technical Depth: {technical_depth}
 
-    Create an engaging, practical lab that helps users learn this feature.
+    {feature_details}
+
+    INSTRUCTIONS:
+    1. If multiple features: Create UNIFIED story using all features progressively
+    2. Design dataset that supports all features naturally
+    3. Generate realistic sample data (no placeholders!)
+    4. Write 5-7 challenges that build from simple to advanced
+    5. Provide complete solutions with explanations
+
+    Make it engaging, practical, and ready to execute!
 
 # Customization Notes:
 # - Use {variable_name} for dynamic content

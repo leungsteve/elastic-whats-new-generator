@@ -431,6 +431,107 @@ Classify each feature into one of the three themes and create a cohesive story."
             logger.error(f"Presentation generation failed: {e}")
             raise ValueError(f"Failed to generate presentation: {e}")
 
+    # Temporarily disable retry to see actual error
+    # @retry(
+    #     stop=stop_after_attempt(3),
+    #     wait=wait_exponential(multiplier=1, min=4, max=10),
+    #     retry=retry_if_exception_type((Exception,))
+    # )
+    def generate_lab(
+        self,
+        features: List[Feature],
+        domain: str = "search",
+        scenario_type: str = "auto",
+        data_size: str = "demo",
+        technical_depth: str = "medium"
+    ) -> Dict[str, Any]:
+        """
+        Generate lab instructions using LLM.
+
+        Args:
+            features: List of features to include in lab
+            domain: Target domain
+            scenario_type: Scenario type (auto/ecommerce/observability/security)
+            data_size: Data size (demo=50 rows, realistic=500 rows, large=5000 rows)
+            technical_depth: Technical depth level
+
+        Returns:
+            Lab instruction data as dict
+        """
+        logger.info(f"Generating lab for {len(features)} feature(s) in {domain} domain")
+
+        # Validate features
+        if not features:
+            raise ValueError("No features provided for lab generation")
+
+        # Load lab prompts from YAML
+        prompts = self._load_prompts_config()
+        lab_prompts = prompts.get('lab_generator', {})
+
+        # Build feature list and details
+        try:
+            feature_list = "\n".join([f"- {f.name}: {f.description}" for f in features])
+        except AttributeError as e:
+            logger.error(f"Feature object missing attribute: {e}. Features type: {type(features[0])}")
+            raise ValueError(f"Invalid feature object: {e}")
+
+        feature_details_parts = []
+        for feature in features:
+            details = f"\nFeature: {feature.name}\nDescription: {feature.description}"
+            if feature.benefits:
+                details += f"\nBenefits: {', '.join(feature.benefits[:3])}"
+            if feature.documentation_links:
+                details += f"\nDocs: {feature.documentation_links[0]}"
+            feature_details_parts.append(details)
+
+        feature_details = "\n".join(feature_details_parts)
+
+        # Convert data size to actual number
+        data_size_mapping = {
+            "demo": "50-100",
+            "realistic": "200-500",
+            "large": "1000-5000"
+        }
+        data_size_num = data_size_mapping.get(data_size, "50-100")
+
+        # Get prompts with fallback defaults
+        system_prompt_template = lab_prompts.get('system_prompt', """You are an expert at creating story-driven, hands-on Elastic labs.
+Create an engaging lab with realistic datasets and copy-paste ready commands.""")
+
+        user_prompt_template = lab_prompts.get('user_prompt', """Create a hands-on lab for Elastic {domain}.
+
+FEATURES TO TEACH:
+{feature_list}
+
+{feature_details}
+
+Create an engaging lab with sample data and ES|QL queries.""")
+
+        # Format prompts
+        system_prompt = system_prompt_template.format(
+            difficulty_level=technical_depth
+        )
+
+        user_prompt = user_prompt_template.format(
+            domain=domain,
+            feature_list=feature_list,
+            scenario_type=scenario_type,
+            data_size=data_size_num,
+            technical_depth=technical_depth,
+            feature_details=feature_details
+        )
+
+        try:
+            response_text = self._call_llm(system_prompt, user_prompt)
+            lab_data = self._parse_json_response(response_text)
+
+            logger.info(f"Generated lab: {lab_data.get('title', 'Untitled')}")
+            return lab_data
+
+        except Exception as e:
+            logger.error(f"Lab generation failed: {e}")
+            raise ValueError(f"Failed to generate lab: {e}")
+
     def _parse_json_response(self, response_text: str) -> Dict[str, Any]:
         """Parse JSON from LLM response, handling markdown code blocks."""
         text = response_text.strip()

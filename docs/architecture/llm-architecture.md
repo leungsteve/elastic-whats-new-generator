@@ -65,7 +65,7 @@ Result: LLMExtractedContent cached in Elasticsearch
 ```
 ┌──────────────────┐
 │ User Requests    │
-│ Presentation     │
+│ Presentation/Lab │
 └────────┬─────────┘
          │
          ▼
@@ -77,20 +77,22 @@ Result: LLMExtractedContent cached in Elasticsearch
          ▼
 ┌──────────────────┐
 │ LLM Generate     │  ← OpenAI/Gemini/Claude
-│ Presentation     │     with customizable prompts
+│ Presentation/Lab │     with customizable prompts
 └────────┬─────────┘
          │
-         ▼
-┌──────────────────┐
-│ 7-Slide          │  ← Structured presentation
-│ Presentation     │     with talk tracks
-└──────────────────┘
+         ├─────────────────┐
+         ▼                 ▼
+┌──────────────────┐  ┌──────────────────┐
+│ 7-Slide          │  │ Story-Driven Lab │
+│ Presentation     │  │ with Datasets    │
+└──────────────────┘  └──────────────────┘
 ```
 
 **Purpose:**
 - Generate cohesive presentations from multiple cached feature extractions
 - Apply Elastic's storytelling framework (3 themes, 7-slide structure)
 - Create comprehensive talk tracks for each slide
+- Generate story-driven labs with realistic datasets and challenges
 - Support different audiences and narrative styles
 
 **Output:**
@@ -204,11 +206,97 @@ content_extractor:
 
 lab_generator:
   system_prompt: |
-    Instructions for creating hands-on labs
+    Instructions for creating story-driven hands-on labs
+    with realistic datasets, progressive challenges
 
   user_prompt: |
     Lab generation request
-    Variables: {feature_name}, {feature_info}, {format_type}
+    Variables: {domain}, {feature_list}, {scenario_type}, {data_size}, {technical_depth}
+```
+
+## Lab Generation Architecture
+
+### Story-Driven Labs
+
+The lab generator creates comprehensive, hands-on labs with realistic business scenarios:
+
+**Required Lab Structure:**
+1. **Story Context** - Compelling business scenario (e.g., "Black Friday at RetailCo")
+2. **Dataset Schema** - Multi-table datasets with relationships (customers, orders, products)
+3. **Setup Commands** - Copy-paste ready Kibana Dev Tools commands
+4. **Progressive Challenges** - 5-7 exercises building from simple to complex
+5. **Complete Solutions** - Full ES|QL commands with explanations
+
+**Lab Data Model:**
+```python
+class DatasetTable(BaseModel):
+    name: str  # Index name
+    description: str  # Table purpose
+    fields: Dict[str, str]  # Field name → ES field type
+    sample_count: int  # Number of sample records
+    relationships: List[str]  # Foreign key relationships
+
+class LabChallenge(BaseModel):
+    number: int  # Challenge order (1-7)
+    title: str  # Challenge title
+    description: str  # What to accomplish
+    hint: Optional[str]  # Solving hint
+    solution: str  # Complete command
+    expected_output: str  # Result description
+    feature_used: Optional[str]  # Feature demonstrated
+
+class LabInstruction(BaseModel):
+    title: str
+    story_context: str  # 2-3 paragraph narrative
+    objective: str
+    feature_ids: List[str]  # Supports multi-feature labs
+    dataset_tables: List[DatasetTable]
+    setup_commands: List[str]  # Copy-paste ready
+    challenges: List[LabChallenge]
+    estimated_time_minutes: int
+    difficulty: str
+```
+
+**Example Lab Structure:**
+```markdown
+# Fleet Health Monitoring with ES|QL LOOKUP JOINS
+
+## Story Context
+You manage a logistics company with 500 delivery trucks generating
+real-time telemetry. Your team identified inefficiencies because
+telemetry data isn't correlated with truck specs and driver assignments...
+
+## Dataset Schema
+
+### trucks_telemetry
+Real-time truck sensor data
+- `truck_id`: keyword
+- `timestamp`: date
+- `speed_mph`: integer
+- `fuel_level_pct`: integer
+- `location`: geo_point
+
+### trucks_specs
+Truck specifications and assignments
+- `truck_id`: keyword
+- `make_model`: text
+- `year`: integer
+- `driver_name`: text
+- `max_speed_mph`: integer
+
+## Setup
+[Copy-paste ready commands to create indices and load 200+ sample records]
+
+## Challenges
+
+### Challenge 1: Basic LOOKUP JOIN
+Enrich telemetry events with truck specifications...
+**Solution:**
+```sql
+FROM trucks_telemetry
+| LOOKUP trucks_specs ON truck_id
+| LIMIT 10
+```
 ```
 
 ### Customization Examples

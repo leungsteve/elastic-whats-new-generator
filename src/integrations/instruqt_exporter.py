@@ -627,23 +627,63 @@ exit 0
         parts.append(f"## Objective\n")
         parts.append(f"{lab_instruction.objective}\n")
 
-        # Scenario
-        parts.append(f"## Scenario\n")
-        parts.append(f"{lab_instruction.scenario}\n")
+        # Story Context (new format) or Scenario (legacy)
+        if lab_instruction.story_context and lab_instruction.story_context != lab_instruction.scenario:
+            parts.append(f"## Story Context\n")
+            parts.append(f"{lab_instruction.story_context}\n")
+        else:
+            parts.append(f"## Scenario\n")
+            parts.append(f"{lab_instruction.scenario}\n")
 
-        # Setup
+        # Dataset Schema (new format)
+        if lab_instruction.dataset_tables:
+            parts.append(f"## Dataset Schema\n")
+            for table in lab_instruction.dataset_tables:
+                parts.append(f"### {table.name}\n")
+                parts.append(f"{table.description}\n")
+                parts.append(f"**Fields:**\n")
+                for field_name, field_type in table.fields.items():
+                    parts.append(f"- `{field_name}`: {field_type}")
+                if table.relationships:
+                    parts.append(f"\n**Relationships:**")
+                    for rel in table.relationships:
+                        parts.append(f"- {rel}")
+                parts.append(f"\n**Sample Records:** {table.sample_count}\n")
+
+        # Setup Commands (new format) or Setup Instructions (legacy)
         parts.append(f"## Setup\n")
-        parts.append(f"{lab_instruction.setup_instructions}\n")
+        if lab_instruction.setup_commands:
+            parts.append("Follow these commands to set up your environment:\n")
+            for i, cmd in enumerate(lab_instruction.setup_commands, 1):
+                parts.append(f"### {i}. Setup Command\n")
+                parts.append("```bash")
+                parts.append(cmd)
+                parts.append("```\n")
+        elif lab_instruction.setup_instructions:
+            parts.append(f"{lab_instruction.setup_instructions}\n")
 
-        # Steps
+        # Challenges (new format) or Steps (legacy)
         parts.append(f"## Instructions\n")
-        for i, step in enumerate(lab_instruction.steps, 1):
-            parts.append(f"### Step {i}\n")
-            parts.append(f"{step}\n")
+        if lab_instruction.challenges:
+            for challenge in lab_instruction.challenges:
+                parts.append(f"### Challenge {challenge.number}: {challenge.title}\n")
+                parts.append(f"{challenge.description}\n")
+                if challenge.hint:
+                    parts.append(f"**Hint:** {challenge.hint}\n")
+                parts.append(f"**Solution:**\n")
+                parts.append("```sql")
+                parts.append(challenge.solution)
+                parts.append("```\n")
+                parts.append(f"**Expected Output:** {challenge.expected_output}\n")
+        elif lab_instruction.steps:
+            for i, step in enumerate(lab_instruction.steps, 1):
+                parts.append(f"### Step {i}\n")
+                parts.append(f"{step}\n")
 
         # Validation
-        parts.append(f"## Validation\n")
-        parts.append(f"{lab_instruction.validation}\n")
+        if lab_instruction.validation:
+            parts.append(f"## Validation\n")
+            parts.append(f"{lab_instruction.validation}\n")
 
         return "\n".join(parts)
 
