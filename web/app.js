@@ -36,6 +36,14 @@ class ElasticGenerator {
             });
         });
 
+        // Test features filtering
+        const testFeatureToggle = document.getElementById('show-test-features');
+        if (testFeatureToggle) {
+            testFeatureToggle.addEventListener('change', () => {
+                this.filterFeaturesByTestStatus();
+            });
+        }
+
         // Modal close on outside click
         document.getElementById('add-feature-modal').addEventListener('click', (e) => {
             if (e.target.id === 'add-feature-modal') {
@@ -240,7 +248,22 @@ class ElasticGenerator {
             return;
         }
 
-        grid.innerHTML = this.features.map(feature => `
+        // Filter features to show
+        const testToggle = document.getElementById('show-test-features');
+        const showTestFeatures = testToggle ? testToggle.checked : false;
+        console.log(`Rendering features - Show test features: ${showTestFeatures}`);
+
+        const featuresToRender = this.features.filter(feature => {
+            // Always show non-test features, only show test features if toggle is enabled
+            const isTest = this.isTestFeature(feature);
+            const shouldShow = !isTest || showTestFeatures;
+            console.log(`${feature.name} - Test: ${isTest}, Show: ${shouldShow}`);
+            return shouldShow;
+        });
+
+        console.log(`Total features: ${this.features.length}, Rendering: ${featuresToRender.length}`);
+
+        grid.innerHTML = featuresToRender.map(feature => `
             <div class="feature-card" data-id="${feature.id}">
                 <h3>${feature.name}</h3>
                 <div class="domain-badge ${feature.domain}">${feature.domain}</div>
@@ -255,6 +278,8 @@ class ElasticGenerator {
                 </div>
                 ` : ''}
 
+                ${this.renderContentResearchSection(feature)}
+
                 <div class="feature-actions">
                     <button class="btn btn-secondary btn-small" onclick="app.editFeature('${feature.id}')">
                         <i class="fas fa-edit"></i> Edit
@@ -265,6 +290,353 @@ class ElasticGenerator {
                 </div>
             </div>
         `).join('');
+    }
+
+    renderContentResearchSection(feature) {
+        const research = feature.content_research;
+        if (!research) {
+            return `
+                <div class="content-research">
+                    <button class="btn btn-primary btn-small" onclick="app.triggerContentResearch('${feature.id}')">
+                        <i class="fas fa-search"></i> Research Content
+                    </button>
+                </div>
+            `;
+        }
+
+        const statusIcon = {
+            pending: 'fas fa-clock',
+            in_progress: 'fas fa-spinner fa-spin',
+            completed: 'fas fa-check-circle',
+            failed: 'fas fa-exclamation-triangle'
+        }[research.status] || 'fas fa-question-circle';
+
+        const statusColor = {
+            pending: 'warning',
+            in_progress: 'info',
+            completed: 'success',
+            failed: 'danger'
+        }[research.status] || 'secondary';
+
+        return `
+            <div class="content-research">
+                <div class="research-status ${statusColor}">
+                    <i class="${statusIcon}"></i>
+                    <span>Research: ${research.status}</span>
+                </div>
+
+                ${research.status === 'completed' ? `
+                    <div class="research-summary">
+                        <small>
+                            ${research.primary_sources ? research.primary_sources.length : 0} sources analyzed
+                            ${research.extracted_content?.key_concepts ? `• ${research.extracted_content.key_concepts.length} key concepts` : ''}
+                            ${research.embeddings?.feature_summary ? '• AI embeddings generated' : ''}
+                        </small>
+                    </div>
+                    <div class="research-actions">
+                        <button class="btn btn-secondary btn-small" onclick="window.app.viewContentResearch('${feature.id}')">
+                            <i class="fas fa-eye"></i> View Research
+                        </button>
+                        <button class="btn btn-secondary btn-small" onclick="app.triggerContentResearch('${feature.id}', true)">
+                            <i class="fas fa-refresh"></i> Refresh
+                        </button>
+                    </div>
+                ` : research.status === 'failed' ? `
+                    <div class="research-actions">
+                        <button class="btn btn-primary btn-small" onclick="app.triggerContentResearch('${feature.id}', true)">
+                            <i class="fas fa-redo"></i> Retry Research
+                        </button>
+                    </div>
+                ` : research.status === 'pending' ? `
+                    <div class="research-actions">
+                        <button class="btn btn-primary btn-small" onclick="app.triggerContentResearch('${feature.id}', true)">
+                            <i class="fas fa-play"></i> Start Research
+                        </button>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }
+
+    async triggerContentResearch(featureId, forceRefresh = false) {
+        try {
+            const response = await fetch(`${this.apiBase}/features/${featureId}/research`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    feature_id: featureId,
+                    force_refresh: forceRefresh
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Research failed: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+            this.showToast(`Content research ${result.research_status} for feature`, 'success');
+
+            // Refresh the feature data to show updated research status
+            setTimeout(() => this.loadFeatures(), 1000);
+
+        } catch (error) {
+            console.error('Content research failed:', error);
+            this.showToast(`Content research failed: ${error.message}`, 'error');
+        }
+    }
+
+    async viewContentResearch(featureId) {
+        try {
+            const response = await fetch(`${this.apiBase}/features/${featureId}/research/detailed`);
+            if (!response.ok) {
+                throw new Error(`Failed to load research data: ${response.statusText}`);
+            }
+
+            const feature = await response.json();
+            this.showContentResearchModal(feature);
+
+        } catch (error) {
+            console.error('Failed to load content research:', error);
+            this.showToast(`Failed to load research data: ${error.message}`, 'error');
+        }
+    }
+
+    showContentResearchModal(feature) {
+        const research = feature.content_research;
+
+        const modalHtml = `
+            <div class="modal" id="content-research-modal">
+                <div class="modal-content large">
+                    <div class="modal-header">
+                        <h3>Content Research: ${feature.feature_name}</h3>
+                        <button class="close-btn" onclick="app.closeContentResearchModal()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="research-tabs">
+                            <div class="tab-nav">
+                                <button class="tab-btn active" data-tab="summary">Summary</button>
+                                <button class="tab-btn" data-tab="sources">Sources</button>
+                                <button class="tab-btn" data-tab="insights">AI Insights</button>
+                                <button class="tab-btn" data-tab="concepts">Key Concepts</button>
+                            </div>
+
+                            <div class="tab-panel active" id="summary-panel">
+                                <h4>Research Summary</h4>
+                                <div class="summary-stats">
+                                    <div class="stat">
+                                        <span class="label">Status:</span>
+                                        <span class="value">${research.status}</span>
+                                    </div>
+                                    <div class="stat">
+                                        <span class="label">Last Updated:</span>
+                                        <span class="value">${new Date(research.last_updated).toLocaleString()}</span>
+                                    </div>
+                                    <div class="stat">
+                                        <span class="label">Primary Sources:</span>
+                                        <span class="value">${research.primary_sources?.length || 0}</span>
+                                    </div>
+                                    <div class="stat">
+                                        <span class="label">Related Sources:</span>
+                                        <span class="value">${research.related_sources?.length || 0}</span>
+                                    </div>
+                                </div>
+
+                                ${research.ai_insights?.technical_summary ? `
+                                    <div class="technical-summary">
+                                        <h5>Technical Summary</h5>
+                                        <p>${research.ai_insights.technical_summary}</p>
+                                    </div>
+                                ` : ''}
+
+                                ${research.ai_insights?.business_value ? `
+                                    <div class="business-value">
+                                        <h5>Business Value</h5>
+                                        <p>${research.ai_insights.business_value}</p>
+                                    </div>
+                                ` : ''}
+                            </div>
+
+                            <div class="tab-panel" id="sources-panel">
+                                <h4>Documentation Sources</h4>
+                                ${this.renderSourcesList(research.primary_sources, 'Primary')}
+                                ${research.related_sources?.length ? this.renderSourcesList(research.related_sources, 'Related') : ''}
+                            </div>
+
+                            <div class="tab-panel" id="insights-panel">
+                                <h4>AI-Generated Insights</h4>
+                                ${this.renderAIInsights(research.ai_insights)}
+                            </div>
+
+                            <div class="tab-panel" id="concepts-panel">
+                                <h4>Key Concepts & Examples</h4>
+                                ${this.renderExtractedContent(research.extracted_content)}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        // Show the modal
+        const modal = document.getElementById('content-research-modal');
+        if (modal) {
+            modal.style.display = 'block';
+
+            // Close modal when clicking outside
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    this.closeContentResearchModal();
+                }
+            });
+        }
+
+        // Setup tab switching
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const tabName = e.target.dataset.tab;
+                this.switchResearchTab(tabName);
+            });
+        });
+    }
+
+    renderSourcesList(sources, type) {
+        if (!sources || sources.length === 0) return '';
+
+        return `
+            <div class="sources-section">
+                <h5>${type} Sources (${sources.length})</h5>
+                <div class="sources-list">
+                    ${sources.map(source => `
+                        <div class="source-item">
+                            <div class="source-header">
+                                <h6>${source.title}</h6>
+                                <span class="source-type">${source.content_type}</span>
+                            </div>
+                            <div class="source-meta">
+                                <a href="${source.url}" target="_blank" class="source-url">
+                                    <i class="fas fa-external-link-alt"></i> ${source.url}
+                                </a>
+                                <span class="word-count">${source.word_count} words</span>
+                            </div>
+                            ${source.content ? `
+                                <div class="source-preview">
+                                    ${source.content.substring(0, 200)}...
+                                </div>
+                            ` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    renderAIInsights(insights) {
+        if (!insights) return '<p>No AI insights available.</p>';
+
+        return `
+            <div class="insights-grid">
+                ${insights.implementation_complexity ? `
+                    <div class="insight-item">
+                        <h5>Implementation Complexity</h5>
+                        <p>${insights.implementation_complexity}</p>
+                    </div>
+                ` : ''}
+
+                ${insights.learning_curve ? `
+                    <div class="insight-item">
+                        <h5>Learning Curve</h5>
+                        <p>${insights.learning_curve}</p>
+                    </div>
+                ` : ''}
+
+                ${insights.recommended_audience?.length ? `
+                    <div class="insight-item">
+                        <h5>Recommended Audience</h5>
+                        <ul>
+                            ${insights.recommended_audience.map(audience => `<li>${audience}</li>`).join('')}
+                        </ul>
+                    </div>
+                ` : ''}
+
+                ${insights.content_themes?.length ? `
+                    <div class="insight-item">
+                        <h5>Content Themes</h5>
+                        <div class="theme-tags">
+                            ${insights.content_themes.map(theme => `<span class="theme-tag">${theme}</span>`).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }
+
+    renderExtractedContent(content) {
+        if (!content) return '<p>No extracted content available.</p>';
+
+        return `
+            ${content.key_concepts?.length ? `
+                <div class="content-section">
+                    <h5>Key Concepts (${content.key_concepts.length})</h5>
+                    <div class="concept-tags">
+                        ${content.key_concepts.map(concept => `<span class="concept-tag">${concept}</span>`).join('')}
+                    </div>
+                </div>
+            ` : ''}
+
+            ${content.use_cases?.length ? `
+                <div class="content-section">
+                    <h5>Use Cases</h5>
+                    <div class="use-cases">
+                        ${content.use_cases.map(useCase => `
+                            <div class="use-case">
+                                <h6>${useCase.title}</h6>
+                                <p>${useCase.description}</p>
+                                <div class="use-case-meta">
+                                    <span class="complexity">${useCase.complexity}</span>
+                                    <span class="time">${useCase.estimated_time}</span>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            ` : ''}
+
+            ${content.configuration_examples?.length ? `
+                <div class="content-section">
+                    <h5>Configuration Examples</h5>
+                    <div class="code-examples">
+                        ${content.configuration_examples.map(example => `
+                            <div class="code-example">
+                                <h6>${example.title}</h6>
+                                <p>${example.description}</p>
+                                <pre><code class="language-${example.language}">${example.code}</code></pre>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            ` : ''}
+        `;
+    }
+
+    switchResearchTab(tabName) {
+        // Remove active classes
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.remove('active'));
+
+        // Add active classes
+        document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+        document.getElementById(`${tabName}-panel`).classList.add('active');
+    }
+
+    closeContentResearchModal() {
+        const modal = document.getElementById('content-research-modal');
+        if (modal) {
+            modal.remove();
+        }
     }
 
     filterFeatures(searchTerm) {
@@ -288,9 +660,54 @@ class ElasticGenerator {
         });
     }
 
+    isTestFeature(feature) {
+        // Check if feature is a test feature based on name and description
+        const testKeywords = ['test', 'testing', 'validation', 'pipeline', 'serverless persistence'];
+        const nameText = feature.name.toLowerCase();
+        const descText = feature.description.toLowerCase();
+
+        const isTest = testKeywords.some(keyword =>
+            nameText.includes(keyword) || descText.includes(keyword)
+        );
+
+        console.log(`Feature "${feature.name}" - Test: ${isTest}`);
+        return isTest;
+    }
+
+    filterFeaturesByTestStatus() {
+        console.log('Test feature toggle clicked!');
+        // Re-render features with current test filter setting
+        this.renderFeatures();
+
+        // Also update presentation and lab feature selectors
+        const presentationContainer = document.getElementById('presentation-features');
+        const labContainer = document.getElementById('lab-features');
+
+        if (presentationContainer) {
+            this.populateFeatureSelector('presentation-features');
+        }
+
+        if (labContainer) {
+            this.populateFeatureSelector('lab-features');
+        }
+    }
+
     populateFeatureSelector(containerId, filterDomain = null) {
         const container = document.getElementById(containerId);
         let features = this.features;
+
+        // Apply test feature filtering - hide test features by default
+        const testToggle = document.getElementById('show-test-features');
+        const showTestFeatures = testToggle ? testToggle.checked : false;
+        console.log(`PopulateFeatureSelector - Show test features: ${showTestFeatures}`);
+
+        features = features.filter(feature => {
+            // Always show non-test features, only show test features if toggle is enabled
+            const isTest = this.isTestFeature(feature);
+            const shouldShow = !isTest || showTestFeatures;
+            console.log(`${feature.name} - Test: ${isTest}, Show: ${shouldShow}`);
+            return shouldShow;
+        });
 
         // For lab features, prioritize valid sample features but show all
         if (containerId === 'lab-features') {
@@ -300,7 +717,7 @@ class ElasticGenerator {
                 'siem-efficiency-001', 'managed-security-001', 'ml-security-001'
             ];
             // Sort to show sample features first, then user-created features
-            features = this.features.sort((a, b) => {
+            features = features.sort((a, b) => {
                 const aIsValid = validSampleFeatureIds.includes(a.id);
                 const bIsValid = validSampleFeatureIds.includes(b.id);
                 if (aIsValid && !bIsValid) return -1;
@@ -411,8 +828,147 @@ class ElasticGenerator {
     }
 
     async editFeature(featureId) {
-        // For now, just show a simple alert
-        this.showToast('Edit feature functionality coming soon!', 'warning');
+        try {
+            // First get the current feature data
+            const response = await fetch(`${this.apiBase}/features/${featureId}`);
+            if (!response.ok) {
+                throw new Error(`Failed to load feature: ${response.statusText}`);
+            }
+
+            const feature = await response.json();
+            this.showEditFeatureModal(feature);
+
+        } catch (error) {
+            console.error('Failed to load feature for editing:', error);
+            this.showToast(`Failed to load feature: ${error.message}`, 'error');
+        }
+    }
+
+    showEditFeatureModal(feature) {
+        const modalHtml = `
+            <div class="modal" id="edit-feature-modal">
+                <div class="modal-content large">
+                    <div class="modal-header">
+                        <h3>Edit Feature: ${feature.name}</h3>
+                        <button class="close-btn" onclick="window.app.closeEditFeatureModal()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="edit-feature-form">
+                            <div class="form-group">
+                                <label for="edit-name">Feature Name *</label>
+                                <input type="text" id="edit-name" name="name" value="${feature.name}" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="edit-description">Description *</label>
+                                <textarea id="edit-description" name="description" rows="4" required>${feature.description}</textarea>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="edit-domain">Domain *</label>
+                                <select id="edit-domain" name="domain" required>
+                                    <option value="search" ${feature.domain === 'search' ? 'selected' : ''}>Search</option>
+                                    <option value="observability" ${feature.domain === 'observability' ? 'selected' : ''}>Observability</option>
+                                    <option value="security" ${feature.domain === 'security' ? 'selected' : ''}>Security</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="edit-benefits">Benefits</label>
+                                <textarea id="edit-benefits" name="benefits" rows="3" placeholder="Enter benefits, one per line">${(feature.benefits || []).join('\\n')}</textarea>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="edit-documentation-links">Documentation Links</label>
+                                <textarea id="edit-documentation-links" name="documentation_links" rows="3" placeholder="Enter URLs, one per line">${(feature.documentation_links || []).join('\\n')}</textarea>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="edit-regenerate-content" name="regenerate_content">
+                                    <span class="checkmark"></span>
+                                    Regenerate content research after updating
+                                </label>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="window.app.closeEditFeatureModal()">
+                            Cancel
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="window.app.saveFeatureChanges('${feature.id}')">
+                            <i class="fas fa-save"></i> Save Changes
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        // Show the modal
+        const modal = document.getElementById('edit-feature-modal');
+        if (modal) {
+            modal.style.display = 'block';
+
+            // Close modal when clicking outside
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    this.closeEditFeatureModal();
+                }
+            });
+        }
+    }
+
+    async saveFeatureChanges(featureId) {
+        try {
+            const form = document.getElementById('edit-feature-form');
+            const formData = new FormData(form);
+
+            // Parse benefits and documentation links from textarea
+            const benefits = formData.get('benefits').split('\\n').map(b => b.trim()).filter(b => b.length > 0);
+            const documentationLinks = formData.get('documentation_links').split('\\n').map(l => l.trim()).filter(l => l.length > 0);
+
+            const updateData = {
+                name: formData.get('name'),
+                description: formData.get('description'),
+                domain: formData.get('domain'),
+                benefits: benefits,
+                documentation_links: documentationLinks,
+                regenerate_content: formData.get('regenerate_content') === 'on'
+            };
+
+            const response = await fetch(`${this.apiBase}/features/${featureId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(updateData)
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to update feature: ${response.statusText}`);
+            }
+
+            this.closeEditFeatureModal();
+            this.showToast('Feature updated successfully!', 'success');
+
+            // Refresh the features list to show updated data
+            this.loadFeatures();
+
+        } catch (error) {
+            console.error('Failed to update feature:', error);
+            this.showToast(`Failed to update feature: ${error.message}`, 'error');
+        }
+    }
+
+    closeEditFeatureModal() {
+        const modal = document.getElementById('edit-feature-modal');
+        if (modal) {
+            modal.remove();
+        }
     }
 
     async deleteFeature(featureId) {
@@ -456,7 +1012,14 @@ class ElasticGenerator {
             feature_ids: selectedFeatures,
             domain: document.getElementById('presentation-domain').value,
             quarter: document.getElementById('presentation-quarter').value,
-            audience: document.getElementById('presentation-audience').value
+            audience: document.getElementById('presentation-audience').value,
+            // Advanced Storytelling Features
+            narrative_style: document.getElementById('narrative-style').value,
+            talk_track_detail: document.getElementById('talk-track-detail').value,
+            technical_depth: document.getElementById('technical-depth').value,
+            include_customer_stories: document.getElementById('include-customer-stories').checked,
+            competitive_positioning: document.getElementById('competitive-positioning').checked,
+            storytelling_enabled: document.getElementById('storytelling-enabled').checked
         };
 
         try {
@@ -510,15 +1073,61 @@ class ElasticGenerator {
         let previewText = `# ${presentation.title}\n\n`;
         previewText += `**Domain:** ${presentation.domain}\n`;
         previewText += `**Quarter:** ${presentation.quarter}\n`;
-        previewText += `**Slides:** ${slides.length}\n\n`;
+        previewText += `**Slides:** ${slides.length}\n`;
 
+        // Show storytelling information if available
+        if (this.currentPresentation.story_arc) {
+            const arc = this.currentPresentation.story_arc;
+            previewText += `**Narrative Style:** ${arc.narrative_style || 'Standard'}\n`;
+            previewText += `**Story Arc:** ${arc.positions ? arc.positions.length + ' story positions' : 'Classic structure'}\n`;
+        }
+
+        if (this.currentPresentation.talk_tracks && this.currentPresentation.talk_tracks.length > 0) {
+            previewText += `**Talk Tracks:** ${this.currentPresentation.talk_tracks.length} comprehensive tracks included\n`;
+        }
+
+        if (this.currentPresentation.customer_stories && this.currentPresentation.customer_stories.length > 0) {
+            previewText += `**Customer Stories:** ${this.currentPresentation.customer_stories.length} success stories\n`;
+        }
+
+        previewText += '\n';
+
+        // Show story arc overview if available
+        if (this.currentPresentation.story_arc && this.currentPresentation.story_arc.positions) {
+            previewText += `## 🎭 Story Arc Overview\n\n`;
+            this.currentPresentation.story_arc.positions.forEach((position, index) => {
+                previewText += `**${position.position}:** ${position.summary}\n`;
+            });
+            previewText += '\n';
+        }
+
+        // Show slides with enhanced information
         slides.forEach((slide, index) => {
             previewText += `## Slide ${index + 1}: ${slide.title}\n`;
             if (slide.subtitle) {
                 previewText += `### ${slide.subtitle}\n`;
             }
+
+            // Show talk track preview if available
+            const matchingTrack = this.currentPresentation.talk_tracks?.find(track =>
+                track.slide_number === index + 1 || track.slide_title === slide.title
+            );
+            if (matchingTrack) {
+                previewText += `**🎤 Talk Track Preview:** ${matchingTrack.speaker_notes.substring(0, 150)}...\n`;
+            }
+
             previewText += `${slide.content.substring(0, 200)}...\n\n`;
         });
+
+        // Show customer stories summary if available
+        if (this.currentPresentation.customer_stories && this.currentPresentation.customer_stories.length > 0) {
+            previewText += `## 💼 Customer Success Stories\n\n`;
+            this.currentPresentation.customer_stories.slice(0, 2).forEach((story, index) => {
+                previewText += `**${story.company_name}** (${story.industry})\n`;
+                previewText += `*Challenge:* ${story.challenge.substring(0, 100)}...\n`;
+                previewText += `*Outcome:* ${story.outcome.substring(0, 100)}...\n\n`;
+            });
+        }
 
         content.textContent = previewText;
         preview.style.display = 'block';
@@ -605,7 +1214,12 @@ class ElasticGenerator {
             track_title: document.getElementById('workshop-title').value,
             format_type: document.getElementById('lab-format').value,
             include_metadata: document.getElementById('include-metadata').checked,
-            export_format: 'inline'
+            export_format: 'inline',
+            // Include storytelling features for enhanced lab experience
+            narrative_style: 'customer_journey', // Labs work well with customer journey approach
+            include_customer_stories: true, // Labs benefit from real-world scenarios
+            technical_depth: 'high', // Labs are typically technical
+            storytelling_enabled: true // Enable enhanced lab narratives
         };
 
         try {
@@ -825,4 +1439,6 @@ function exportLabs(exportFormat) {
 let app;
 document.addEventListener('DOMContentLoaded', () => {
     app = new ElasticGenerator();
+    // Make app globally accessible for onclick handlers
+    window.app = app;
 });

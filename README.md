@@ -27,10 +27,24 @@ Domain Routing → Theme Organization → Template Rendering → Presentations &
   - **Optimize**: "Do it faster"
   - **AI Innovation**: "Do it with AI"
 
+- **Advanced Storytelling Framework** 🎭:
+  - **Story Arc Planning**: Multi-position narrative structure (Hook, Build, Climax, Resolution)
+  - **Talk Track Generation**: Comprehensive speaker notes with timing and transitions
+  - **Customer Story Integration**: Real-world success stories with quantified business impact
+  - **Business Value Calculation**: ROI projections and value drivers
+  - **Competitive Positioning**: Differentiation analysis and market positioning
+
+- **Enhanced User Interface**:
+  - **Test Feature Filtering**: Automatic hiding of test features from production UI
+  - **Advanced Storytelling Controls**: Narrative style, talk track detail, technical depth
+  - **Enhanced Previews**: Story arc overview, talk track previews, customer story summaries
+  - **Cross-Tab Functionality**: Consistent filtering across Features, Presentations, and Labs tabs
+
 - **Multi-Domain Content Generation**:
   - Domain-specific presentations (Search/Observability/Security)
   - Unified platform presentations showing cross-domain synergies
-  - Instruqt-compatible lab instructions with sample data
+  - Instruqt-compatible lab instructions with narrative flow
+  - Customer journey-based lab scenarios
 
 - **Flexible LLM Integration**:
   - Primary: Claude for high-quality content generation
@@ -38,8 +52,10 @@ Domain Routing → Theme Organization → Template Rendering → Presentations &
   - Extensible architecture for additional providers
 
 ### Output Formats
-- **Presentations**: Markdown slides following proven framework
-- **Lab Instructions**: Step-by-step Instruqt workshops
+- **Presentations**: Markdown slides with advanced storytelling and comprehensive talk tracks
+- **Lab Instructions**: Step-by-step Instruqt workshops with customer scenarios
+- **Customer Stories**: Real-world success stories with business impact metrics
+- **Speaker Notes**: Detailed talk tracks with timing and transition guidance
 - **Sample Data**: Realistic datasets for hands-on exercises
 
 ## 📋 Requirements
@@ -117,14 +133,20 @@ curl -X POST "http://localhost:8000/generate/presentation" \
 elastic-whats-new-generator/
 ├── src/
 │   ├── core/                 # Business logic
-│   │   ├── models.py        # Data models
+│   │   ├── models.py        # Enhanced data models with storytelling
 │   │   ├── classifier.py    # Feature classification
+│   │   ├── storytelling.py  # Advanced narrative framework (NEW)
 │   │   └── generators/      # Content generators
 │   ├── integrations/        # External services
 │   │   ├── elasticsearch.py # Data storage
 │   │   ├── llm_providers.py # LLM abstraction
-│   │   └── web_scraper.py   # Documentation scraping
+│   │   ├── web_scraper.py   # Documentation scraping
+│   │   └── customer_story_research.py # Customer stories & business impact (NEW)
+│   ├── api/                 # FastAPI REST interface
 │   └── templates/           # Content templates
+├── web/                     # Enhanced UI with storytelling controls (NEW)
+│   ├── index.html          # Main interface with advanced storytelling features
+│   └── app.js              # Frontend with comprehensive story integration
 ├── tests/                   # Test suite
 ├── config/                  # Configuration files
 ├── agents/                  # Specialized agent docs
@@ -182,6 +204,31 @@ Every feature is classified into one of three innovation themes:
 - **Single Domain**: Focused presentations for Search, Observability, or Security teams
 - **All Domains**: Unified platform story showing cross-domain value and synergies
 - **Cross-Domain Labs**: Scenarios that demonstrate platform integration (e.g., Search + Security threat hunting)
+
+### Advanced Storytelling Framework 🎭
+
+#### Story Arc Structure
+1. **Opening Hook**: Capture attention with relatable challenges
+2. **Problem Build**: Escalate urgency and pain points
+3. **Solution Introduction**: Present Elastic's innovative approach
+4. **Climax**: Demonstrate transformative impact
+5. **Resolution**: Quantified outcomes and business value
+6. **Call to Action**: Clear next steps for engagement
+
+#### Narrative Styles
+- **Customer Journey**: Follow a customer's transformation story
+- **Problem → Solution**: Traditional challenge-resolution narrative
+- **Innovation Showcase**: Highlight cutting-edge capabilities
+
+#### Talk Track Generation
+- **Comprehensive**: Detailed speaker notes with timing (15-20 min presentations)
+- **Standard**: Essential talking points and transitions (10-15 min presentations)
+- **Basic**: Key messages and bullet points (5-10 min presentations)
+
+#### Customer Story Integration
+- **Real-World Scenarios**: Industry-specific use cases
+- **Quantified Impact**: ROI, efficiency gains, cost savings
+- **Business Value**: Competitive advantages and market positioning
 
 ## 🔧 Configuration
 
@@ -241,12 +288,25 @@ domains:
 
 ## 🗺️ Roadmap
 
-### Current MVP (Weeks 1-3)
+### Completed Features ✅
 - [x] Project architecture and planning
-- [ ] Core data models and LLM integration
-- [ ] Feature classification and content generation
-- [ ] Multi-domain presentation support
-- [ ] FastAPI REST interface
+- [x] Core data models and LLM integration
+- [x] Feature classification and content generation
+- [x] Multi-domain presentation support
+- [x] FastAPI REST interface
+- [x] Advanced storytelling framework with narrative arcs
+- [x] Customer story research and business impact integration
+- [x] Enhanced UI with test feature filtering
+- [x] Comprehensive talk track generation
+- [x] Story arc planning and narrative flow
+- [x] Cross-tab functionality and improved UX
+
+### Current Phase (Advanced Integration)
+- [ ] Backend API integration with storytelling parameters
+- [ ] End-to-end presentation generation with full story arcs
+- [ ] Customer story API endpoints and data integration
+- [ ] Business value calculation endpoints
+- [ ] Competitive positioning research automation
 
 ### Future Enhancements
 - [ ] OpenTelemetry observability and monitoring
@@ -254,6 +314,8 @@ domains:
 - [ ] Feedback loops and content optimization
 - [ ] Multi-modal content generation (images, diagrams)
 - [ ] Content governance and version control
+- [ ] AI-powered content quality scoring
+- [ ] Automated A/B testing for presentation effectiveness
 
 ## 📄 License
 

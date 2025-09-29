@@ -75,6 +75,18 @@
                         </label>
                     </div>
                 </div>
+
+                <!-- Test Features Filter -->
+                <div class="test-filter">
+                    <h3>Development</h3>
+                    <div class="filter-options">
+                        <label class="filter-option">
+                            <input type="checkbox" id="show-test-features" name="test-features">
+                            <span class="checkmark"></span>
+                            Show Test Features
+                        </label>
+                    </div>
+                </div>
             </aside>
 
             <!-- Content Area -->
@@ -137,6 +149,56 @@
                                         <option value="business">Business</option>
                                         <option value="technical">Technical</option>
                                     </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h3>🎭 Advanced Storytelling Features</h3>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="narrative-style">Narrative Style</label>
+                                    <select id="narrative-style">
+                                        <option value="customer_journey">Customer Journey</option>
+                                        <option value="problem_solution">Problem → Solution</option>
+                                        <option value="innovation_showcase">Innovation Showcase</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="talk-track-detail">Talk Track Detail</label>
+                                    <select id="talk-track-detail">
+                                        <option value="comprehensive">Comprehensive</option>
+                                        <option value="standard">Standard</option>
+                                        <option value="basic">Basic</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="technical-depth">Technical Depth</label>
+                                    <select id="technical-depth">
+                                        <option value="medium">Medium</option>
+                                        <option value="high">High</option>
+                                        <option value="low">Low</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>
+                                        <input type="checkbox" id="include-customer-stories" checked>
+                                        Include Customer Success Stories
+                                    </label>
+                                </div>
+                                <div class="form-group">
+                                    <label>
+                                        <input type="checkbox" id="competitive-positioning">
+                                        Include Competitive Positioning
+                                    </label>
+                                </div>
+                                <div class="form-group">
+                                    <label>
+                                        <input type="checkbox" id="storytelling-enabled" checked>
+                                        Enable Advanced Storytelling
+                                    </label>
                                 </div>
                             </div>
                         </div>
@@ -306,6 +368,6 @@
         </div>
     </div>
 
-    <script src="/static/app.js"></script>
+    <script src="/static/app.js?v=4"></script>
 </body>
 </html>
