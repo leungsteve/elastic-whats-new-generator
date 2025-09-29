@@ -83,9 +83,6 @@ class ElasticGenerator {
             case 'labs':
                 this.populateFeatureSelector('lab-features');
                 break;
-            case 'exports':
-                this.loadExportHistory();
-                break;
             case 'analytics':
                 this.loadAnalytics();
                 break;
@@ -1443,36 +1440,6 @@ class ElasticGenerator {
                 this.showToast('Error exporting labs', 'error');
             }
         }
-    }
-
-    // Export History
-    loadExportHistory() {
-        const exportList = document.getElementById('export-list');
-        // Mock export history for now
-        exportList.innerHTML = `
-            <div class="export-item">
-                <div class="export-info">
-                    <h4>Search Features Presentation - GitHub Markdown</h4>
-                    <p>Generated on ${new Date().toLocaleDateString()} • 3 features • 6,372 characters</p>
-                </div>
-                <div class="export-actions">
-                    <button class="btn btn-secondary btn-small">
-                        <i class="fas fa-download"></i> Download
-                    </button>
-                </div>
-            </div>
-            <div class="export-item">
-                <div class="export-info">
-                    <h4>Advanced Search Workshop - Standard Markdown</h4>
-                    <p>Generated on ${new Date().toLocaleDateString()} • 2 labs • 3,027 characters</p>
-                </div>
-                <div class="export-actions">
-                    <button class="btn btn-secondary btn-small">
-                        <i class="fas fa-download"></i> Download
-                    </button>
-                </div>
-            </div>
-        `;
     }
 
     // LLM Prompts Viewer
