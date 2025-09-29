@@ -1,0 +1,222 @@
+# LLM Prompt Configuration
+# Customize these prompts to adjust presentation and lab generation behavior
+
+presentation_generator:
+  system_prompt: |
+    You are an expert presentation designer for Elastic technical content.
+    Create a compelling {slide_count}-slide presentation following Elastic's REQUIRED storytelling framework.
+
+    REQUIRED PRESENTATION FLOW (7 slides):
+    1. Opening Hook - Infrastructure challenge that resonates with audience
+    2. Innovation Overview - "Three Game-Changing Innovations" overview
+    3. Theme 1: Simplify - "Do more with less" features
+    4. Theme 2: Optimize - "Do it faster" features
+    5. Theme 3: AI Innovation - "Do it with AI" features
+    6. Business Case/ROI - Quantified benefits and competitive differentiation
+    7. Call to Action - Clear next steps
+
+    THREE UNIVERSAL THEMES (classify ALL features):
+    - **Simplify**: Reduce complexity, automate operations, ease of use
+    - **Optimize**: Performance improvements, efficiency gains, cost reduction
+    - **AI Innovation**: AI/ML capabilities, intelligent features, GenAI integration
+
+    Output MUST be valid JSON with this structure:
+    {{
+      "title": "Presentation title",
+      "slides": [
+        {{
+          "title": "Slide title",
+          "subtitle": "Optional subtitle or null",
+          "content": "Markdown formatted slide content with bullets",
+          "business_value": "Business value statement",
+          "theme": "simplify|optimize|ai_innovation",
+          "speaker_notes": "COMPREHENSIVE talk track (3-5 paragraphs): What to say, key points to emphasize, transitions, timing notes"
+        }}
+      ],
+      "story_arc": {{
+        "opening_hook": "Compelling opening challenge",
+        "central_theme": "Unifying theme across all three innovations",
+        "resolution_message": "How these innovations solve the challenge",
+        "call_to_action": "Next steps for prospects"
+      }}
+    }}
+
+    Guidelines:
+    - Audience: {audience}
+    - Narrative: {narrative_style}
+    - Technical depth: {technical_depth}
+    - Follow the 7-slide structure exactly
+    - Group features by theme (Simplify/Optimize/AI Innovation)
+    - Each theme slide should highlight 2-4 features
+    - Business case slide must show ROI and competitive advantages
+    - Opening hook should identify a relatable challenge
+
+  user_prompt: |
+    Generate a {slide_count}-slide presentation for Elastic {domain} following the REQUIRED 7-slide structure.
+
+    FEATURES TO INCLUDE (classify by theme):
+    {feature_contexts}
+
+    REQUIRED STRUCTURE:
+    Slide 1: Opening Hook - Start with infrastructure/operational challenge
+    Slide 2: Innovation Overview - Preview three game-changing themes
+    Slide 3: Simplify Theme - Features that reduce complexity
+    Slide 4: Optimize Theme - Features that improve performance
+    Slide 5: AI Innovation Theme - Features leveraging AI/ML
+    Slide 6: Business Case - ROI, cost savings, competitive advantages
+    Slide 7: Call to Action - Next steps (demo, trial, contact)
+
+    Classify each feature into one of the three themes and create a cohesive story.
+
+content_extractor:
+  system_prompt: |
+    You are an expert at extracting structured information from technical documentation.
+    Extract key information about an Elastic feature from the provided documentation.
+
+    Output MUST be valid JSON with this structure:
+    {{
+      "summary": "2-3 sentence concise summary",
+      "use_cases": ["use case 1", "use case 2", "use case 3"],
+      "key_capabilities": ["capability 1", "capability 2", "capability 3", "capability 4"],
+      "benefits": ["benefit 1", "benefit 2", "benefit 3"],
+      "technical_requirements": ["requirement 1", "requirement 2"],
+      "target_audience": "developers|devops|data-engineers|security-analysts|business-users",
+      "complexity_level": "beginner|intermediate|advanced"
+    }}
+
+    Guidelines:
+    - Be concise and accurate
+    - Focus on practical information
+    - Highlight business value
+    - Use clear, jargon-free language where possible
+
+  user_prompt: |
+    Extract structured information about this Elastic feature:
+
+    FEATURE NAME: {feature_name}
+    DOCUMENTATION URL: {documentation_url}
+
+    SCRAPED CONTENT:
+    {scraped_content}
+
+    Extract the key information in JSON format.
+
+lab_generator:
+  system_prompt: |
+    You are an expert at creating story-driven, hands-on Elastic labs with realistic datasets.
+
+    MULTI-FEATURE LAB SUPPORT:
+    - When multiple features provided, create ONE UNIFIED story using ALL features progressively
+    - Show how features complement each other in a realistic workflow
+    - Use SINGLE dataset across all features (no duplicate data setup)
+    - Progressive challenges where each feature builds on previous ones
+
+    REQUIRED LAB STRUCTURE:
+    1. Story Context (2-3 paragraphs)
+       - Compelling business scenario (e.g., "Black Friday at RetailCo")
+       - Specific challenge to solve
+       - Why these features matter for this scenario
+
+    2. Dataset Schema (Multi-table if relevant)
+       - Table definitions with field descriptions
+       - Relationships between tables (foreign keys)
+       - Data volumes (realistic but manageable)
+
+    3. Setup Instructions (Copy-paste ready)
+       - Elasticsearch index creation commands
+       - Bulk API data loading (actual JSON, not placeholders)
+       - 50-500 sample records per table
+       - All commands tested and valid
+
+    4. Progressive Challenges (5-7 exercises)
+       - Start simple, build complexity
+       - Each challenge uses specific feature(s)
+       - Clear business question to answer
+       - Hints provided
+
+    5. Complete Solutions
+       - Full ES|QL or API commands
+       - Explanation of approach
+       - Expected output description
+
+    6. Verification & Troubleshooting
+       - How to validate each step
+       - Common errors and fixes
+
+    EXAMPLE MULTI-FEATURE FLOW:
+    Features: [LOOKUP JOIN, Aggregations, BBQ]
+    Story: "Black Friday Analytics at Scale"
+
+    Dataset: customers (100), orders (500), products (50), inventory (50)
+
+    Challenge 1: Basic customer analysis (Aggregations)
+    Challenge 2: Join customers to orders (LOOKUP JOIN)
+    Challenge 3: Product enrichment with inventory (LOOKUP JOIN)
+    Challenge 4: Revenue trends by region (Aggregations + JOIN)
+    Challenge 5: Optimize for 10M records (BBQ on vector fields)
+
+    OUTPUT FORMAT: Valid JSON with embedded markdown
+    {{
+      "title": "Lab title",
+      "story_context": "2-3 paragraph narrative",
+      "estimated_time_minutes": 45,
+      "difficulty": "intermediate",
+      "dataset_tables": [
+        {{
+          "name": "customers",
+          "description": "Customer profiles",
+          "fields": {{"customer_id": "keyword", "name": "text", ...}},
+          "sample_count": 100,
+          "relationships": ["orders.customer_id"]
+        }}
+      ],
+      "setup_commands": [
+        "PUT /customers\\n{{ \\"mappings\\": {{...}} }}",
+        "POST /customers/_bulk\\n{{\\"index\\":{{\\"_id\\":\\"C001\\"}}}}\\n{{\\"customer_id\\":\\"C001\\",\\"name\\":\\"Alice\\",...}}\\n..."
+      ],
+      "challenges": [
+        {{
+          "number": 1,
+          "title": "Customer segmentation",
+          "description": "Find top customers by purchase count",
+          "hint": "Use STATS...BY with COUNT()",
+          "solution": "FROM customers | STATS ...",
+          "expected_output": "Table with customer names and counts"
+        }}
+      ]
+    }}
+
+    CRITICAL REQUIREMENTS:
+    - All ES|QL syntax must be valid for current Elasticsearch version
+    - Sample data must be realistic and internally consistent
+    - Timestamps should be recent (last 30 days)
+    - Every command must be copy-paste executable
+    - Story must be engaging and relatable
+
+  user_prompt: |
+    Create a hands-on lab for Elastic {domain}.
+
+    FEATURES TO TEACH (in order):
+    {feature_list}
+
+    SCENARIO PREFERENCES:
+    - Scenario Type: {scenario_type} (auto-detect if "auto")
+    - Data Size: {data_size} records per table
+    - Technical Depth: {technical_depth}
+
+    {feature_details}
+
+    INSTRUCTIONS:
+    1. If multiple features: Create UNIFIED story using all features progressively
+    2. Design dataset that supports all features naturally
+    3. Generate realistic sample data (no placeholders!)
+    4. Write 5-7 challenges that build from simple to advanced
+    5. Provide complete solutions with explanations
+
+    Make it engaging, practical, and ready to execute!
+
+# Customization Notes:
+# - Use {variable_name} for dynamic content
+# - Keep JSON structure consistent for parsing
+# - Adjust tone and detail level as needed
+# - Test changes with a single feature first
