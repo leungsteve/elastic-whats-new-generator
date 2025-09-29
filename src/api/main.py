@@ -6,6 +6,7 @@ content generation, and presentation creation.
 """
 
 from typing import List, Dict, Any, Optional
+from datetime import datetime, timezone
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -16,8 +17,13 @@ import tempfile
 import shutil
 import zipfile
 import uvicorn
+from elasticsearch import Elasticsearch
+from dotenv import load_dotenv
 
-from src.core.models import Feature, Domain, Theme, SlideContent, LabInstruction
+# Load environment variables from .env file
+load_dotenv()
+
+from src.core.models import Feature, Domain, Theme, SlideContent, LabInstruction, ContentResearch
 from src.core.classifier import FeatureClassifier
 from src.core.generators.content_generator import ContentGenerator
 from src.core.generators.presentation_generator import PresentationGenerator
@@ -25,6 +31,9 @@ from src.core.generators.unified_presentation_generator import UnifiedPresentati
 from src.integrations.web_scraper import WebScraper
 from src.integrations.instruqt_exporter import InstruqtExporter
 from src.integrations.markdown_exporter import MarkdownExporter, MarkdownFormat
+from src.integrations.content_research_service import ContentResearchService, ContentResearchConfig
+from src.core.storytelling import StoryArcPlanner, TalkTrackGenerator, NarrativeFlowAnalyzer
+from src.integrations.customer_story_research import CustomerStoryResearcher, BusinessValueCalculator
 
 # Optional imports
 try:
@@ -66,16 +75,44 @@ web_scraper = WebScraper()
 instruqt_exporter = InstruqtExporter()
 markdown_exporter = MarkdownExporter()
 
+# Storytelling components
+story_arc_planner = StoryArcPlanner()
+talk_track_generator = TalkTrackGenerator()
+narrative_flow_analyzer = NarrativeFlowAnalyzer()
+customer_story_researcher = CustomerStoryResearcher()
+business_value_calculator = BusinessValueCalculator()
+
+# Content research service
+content_research_config = ContentResearchConfig()
+content_research_service = ContentResearchService(config=content_research_config)
+
 # Dependency for Elasticsearch (in production, configure with settings)
 def get_es_client():
-    """Get Elasticsearch client (mock for development)."""
-    # In production, return actual ES client: Elasticsearch(["localhost:9200"])
+    """Get Elasticsearch client for Serverless or local development."""
+    import os
+
+    # Check for Serverless configuration first
+    es_url = os.getenv('ELASTICSEARCH_URL')
+    api_key = os.getenv('ELASTICSEARCH_API_KEY')
+
+    if es_url and api_key:
+        # Serverless connection
+        return Elasticsearch(
+            es_url,
+            api_key=api_key,
+            verify_certs=True
+        )
+    elif es_url:
+        # Local Elasticsearch without API key
+        return Elasticsearch([es_url])
+
+    # No configuration - demo mode
     return None
 
 def get_feature_storage(es_client = Depends(get_es_client)):
     """Get FeatureStorage instance."""
     if es_client and ELASTICSEARCH_AVAILABLE:
-        return FeatureStorage(es_client)
+        return FeatureStorage(es_client, index_name="elastic-whats-new-features")
     return None
 
 
@@ -88,14 +125,29 @@ class FeatureCreateRequest(BaseModel):
     domain: Domain
     scrape_docs: bool = False
 
+class FeatureUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    benefits: Optional[List[str]] = None
+    documentation_links: Optional[List[str]] = None
+    domain: Optional[Domain] = None
+    regenerate_content: bool = False
+
+class ContentResearchRequest(BaseModel):
+    feature_id: str
+    force_refresh: bool = False
+
 class FeatureResponse(BaseModel):
     id: str
     name: str
     description: str
     benefits: List[str]
+    documentation_links: Optional[List[str]] = None
     theme: Optional[Theme]
     domain: Domain
     created_at: str
+    updated_at: str
+    content_research: Optional[ContentResearch] = None
 
 class ClassificationRequest(BaseModel):
     feature_id: str
@@ -111,12 +163,26 @@ class PresentationGenerationRequest(BaseModel):
     domain: Domain
     quarter: str = "Q1-2024"
     audience: str = "mixed"
+    # Advanced Storytelling Features
+    narrative_style: str = "customer_journey"  # customer_journey, problem_solution, innovation_showcase
+    talk_track_detail: str = "standard"  # comprehensive, standard, basic
+    technical_depth: str = "medium"  # high, medium, low
+    include_customer_stories: bool = True
+    competitive_positioning: bool = False
+    storytelling_enabled: bool = True
 
 class UnifiedPresentationRequest(BaseModel):
     feature_ids: List[str]
     quarter: str = "Q1-2024"
     audience: str = "mixed"
     story_theme: str = "platform_transformation"
+    # Advanced Storytelling Features
+    narrative_style: str = "customer_journey"  # customer_journey, problem_solution, innovation_showcase
+    talk_track_detail: str = "standard"  # comprehensive, standard, basic
+    technical_depth: str = "medium"  # high, medium, low
+    include_customer_stories: bool = True
+    competitive_positioning: bool = False
+    storytelling_enabled: bool = True
 
 class PresentationResponse(BaseModel):
     slides: List[Dict[str, Any]]
@@ -160,6 +226,11 @@ class LabMarkdownExportRequest(BaseModel):
     include_metadata: bool = True
     export_format: str = "inline"  # "inline", "file", "multiple"
     filename: Optional[str] = None
+    # Storytelling features for enhanced lab experience
+    narrative_style: str = "customer_journey"
+    include_customer_stories: bool = True
+    technical_depth: str = "high"  # Labs are typically technical
+    storytelling_enabled: bool = True
 
 class LabMarkdownExportResponse(BaseModel):
     content: Optional[str] = None
@@ -168,6 +239,58 @@ class LabMarkdownExportResponse(BaseModel):
     format_type: str
     character_count: int
     lab_count: int
+
+
+class CustomerStoryRequest(BaseModel):
+    """Request model for customer story research."""
+    feature_id: str
+    research_depth: str = "standard"  # basic, standard, comprehensive
+    include_metrics: bool = True
+    industry_focus: Optional[str] = None
+
+
+class CustomerStoryResponse(BaseModel):
+    """Response model for customer story research."""
+    feature_id: str
+    customer_stories: List[Dict[str, Any]]
+    business_impact: Dict[str, Any]
+    generated_at: datetime
+    research_depth: str
+
+
+class BusinessValueRequest(BaseModel):
+    """Request model for business value calculation."""
+    feature_ids: List[str]
+    organization_size: str = "medium"  # small, medium, large, enterprise
+    industry: Optional[str] = None
+    current_spend: Optional[float] = None
+
+
+class BusinessValueResponse(BaseModel):
+    """Response model for business value calculation."""
+    feature_ids: List[str]
+    roi_projection: Dict[str, Any]
+    value_drivers: List[Dict[str, str]]
+    total_annual_savings: str
+    payback_period: str
+    calculated_at: datetime
+
+
+class CompetitivePositioningRequest(BaseModel):
+    """Request model for competitive positioning analysis."""
+    feature_id: str
+    competitors: Optional[List[str]] = None
+    analysis_depth: str = "standard"  # basic, standard, comprehensive
+
+
+class CompetitivePositioningResponse(BaseModel):
+    """Response model for competitive positioning analysis."""
+    feature_id: str
+    competitive_analysis: Dict[str, Any]
+    differentiators: List[str]
+    market_position: str
+    competitor_comparison: Dict[str, str]
+    analyzed_at: datetime
 
 
 # Health check
@@ -207,17 +330,15 @@ async def create_feature(
         domain=request.domain
     )
 
-    # Scrape documentation if requested
+    # Trigger content research if requested
     if request.scrape_docs and request.documentation_links:
         try:
-            scraped_content = web_scraper.extract_feature_context(
-                request.name,
-                request.documentation_links
-            )
-            feature.scraped_content = scraped_content
+            # The content research will be triggered asynchronously after feature creation
+            # For now, just mark that research should be performed
+            feature.content_research.scraping_enabled = True
         except Exception as e:
             # Log error but don't fail the request
-            print(f"Warning: Failed to scrape docs: {e}")
+            print(f"Warning: Failed to enable content research: {e}")
 
     # Classify feature
     try:
@@ -238,9 +359,12 @@ async def create_feature(
         name=feature.name,
         description=feature.description,
         benefits=feature.benefits,
+        documentation_links=feature.documentation_links,
         theme=feature.theme,
         domain=feature.domain,
-        created_at=feature.created_at.isoformat()
+        created_at=feature.created_at.isoformat(),
+        updated_at=feature.updated_at.isoformat(),
+        content_research=feature.content_research
     )
 
 
@@ -269,9 +393,12 @@ async def list_features(
                 name=f.name,
                 description=f.description,
                 benefits=f.benefits,
+                documentation_links=f.documentation_links,
                 theme=f.theme,
                 domain=f.domain,
-                created_at=f.created_at.isoformat()
+                created_at=f.created_at.isoformat(),
+                updated_at=f.updated_at.isoformat(),
+                content_research=f.content_research
             )
             for f in features
         ]
@@ -298,14 +425,111 @@ async def get_feature(
             name=feature.name,
             description=feature.description,
             benefits=feature.benefits,
+            documentation_links=feature.documentation_links,
             theme=feature.theme,
             domain=feature.domain,
-            created_at=feature.created_at.isoformat()
+            created_at=feature.created_at.isoformat(),
+            updated_at=feature.updated_at.isoformat(),
+            content_research=feature.content_research
         )
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to retrieve feature: {e}")
+
+
+@app.put("/features/{feature_id}", response_model=FeatureResponse)
+async def update_feature(
+    feature_id: str,
+    request: FeatureUpdateRequest,
+    feature_storage: Optional[FeatureStorage] = Depends(get_feature_storage),
+    es_client = Depends(get_es_client)
+):
+    """Update an existing feature."""
+    if not feature_storage:
+        raise HTTPException(status_code=503, detail="Feature storage not available")
+
+    try:
+        # Get the existing feature
+        feature = feature_storage.get_by_id(feature_id)
+        if not feature:
+            raise HTTPException(status_code=404, detail="Feature not found")
+
+        # Update fields that were provided
+        if request.name is not None:
+            feature.name = request.name
+        if request.description is not None:
+            feature.description = request.description
+        if request.benefits is not None:
+            feature.benefits = request.benefits
+        if request.documentation_links is not None:
+            feature.documentation_links = request.documentation_links
+        if request.domain is not None:
+            feature.domain = request.domain
+
+        # Update timestamp
+        feature.updated_at = datetime.now(timezone.utc)
+
+        # Store the updated feature
+        feature_storage.store(feature)
+
+        # Trigger content research regeneration if requested
+        if request.regenerate_content and es_client:
+            from src.integrations.content_research_service import ContentResearchService
+            content_service = ContentResearchService(es_client)
+            try:
+                # Trigger content research in background (don't wait for completion)
+                import asyncio
+                asyncio.create_task(content_service.research_feature_content(feature))
+            except Exception as e:
+                # Log error but don't fail the update
+                print(f"Warning: Failed to trigger content research: {e}")
+
+        return FeatureResponse(
+            id=feature.id,
+            name=feature.name,
+            description=feature.description,
+            benefits=feature.benefits,
+            documentation_links=feature.documentation_links,
+            theme=feature.theme,
+            domain=feature.domain,
+            created_at=feature.created_at.isoformat(),
+            updated_at=feature.updated_at.isoformat(),
+            content_research=feature.content_research
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update feature: {e}")
+
+
+@app.delete("/features/{feature_id}")
+async def delete_feature(
+    feature_id: str,
+    feature_storage: Optional[FeatureStorage] = Depends(get_feature_storage)
+):
+    """Delete a feature by ID."""
+    if not feature_storage:
+        raise HTTPException(status_code=503, detail="Feature storage not available")
+
+    try:
+        # Check if feature exists before deletion
+        feature = feature_storage.get_by_id(feature_id)
+        if not feature:
+            raise HTTPException(status_code=404, detail="Feature not found")
+
+        # Delete the feature
+        success = feature_storage.delete_feature(feature_id)
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to delete feature")
+
+        return {"message": "Feature deleted successfully", "feature_id": feature_id}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete feature: {e}")
 
 
 # Classification endpoint
@@ -469,21 +693,42 @@ async def generate_complete_presentation(
         raise HTTPException(status_code=404, detail="No features found")
 
     try:
-        # Use unified generator for ALL_DOMAINS or multi-domain scenarios
-        if request.domain == Domain.ALL_DOMAINS or len(set(f.domain for f in features)) > 1:
-            presentation = unified_presentation_generator.generate_unified_presentation(
+        # Generate storytelling components if enabled
+        story_arc = None
+        talk_tracks = []
+        customer_stories = []
+
+        if request.storytelling_enabled:
+            # Generate story arc
+            story_arc = await story_arc_planner.plan_story_arc(
                 features=features,
-                quarter=request.quarter,
-                audience=request.audience,
-                story_theme="platform_transformation"
-            )
-        else:
-            presentation = presentation_generator.generate_complete_presentation(
-                features=features,
+                narrative_style=request.narrative_style,
                 domain=request.domain,
-                quarter=request.quarter,
                 audience=request.audience
             )
+
+            # Generate customer stories if requested
+            if request.include_customer_stories:
+                for feature in features[:3]:  # Limit to 3 features for performance
+                    feature_stories = await customer_story_researcher.research_customer_stories(
+                        feature=feature,
+                        max_stories=1
+                    )
+                    customer_stories.extend(feature_stories)
+
+        # Use enhanced content generator with storytelling
+        presentation = await content_generator.generate_complete_presentation(
+            features=features,
+            domain=request.domain,
+            quarter=request.quarter,
+            audience=request.audience,
+            narrative_style=request.narrative_style,
+            talk_track_detail=request.talk_track_detail,
+            technical_depth=request.technical_depth,
+            include_customer_stories=request.include_customer_stories,
+            competitive_positioning=request.competitive_positioning,
+            storytelling_enabled=request.storytelling_enabled
+        )
 
         # Convert to API response format
         slides_data = []
@@ -497,7 +742,8 @@ async def generate_complete_presentation(
                 "speaker_notes": slide.speaker_notes
             })
 
-        return {
+        # Build response with storytelling components
+        response_data = {
             "presentation": {
                 "id": presentation.id,
                 "title": presentation.title,
@@ -512,9 +758,52 @@ async def generate_complete_presentation(
                 "slide_count": len(slides_data),
                 "feature_count": len(features),
                 "audience": request.audience,
-                "framework": "7-slide Elastic presentation framework"
+                "framework": "7-slide Elastic presentation framework with storytelling"
             }
         }
+
+        # Add storytelling components if enabled
+        if request.storytelling_enabled:
+            if story_arc:
+                response_data["story_arc"] = {
+                    "narrative_style": story_arc.narrative_style,
+                    "positions": [
+                        {
+                            "position": pos.position.value,
+                            "slide_number": pos.slide_number,
+                            "summary": pos.summary,
+                            "key_message": pos.key_message,
+                            "emotional_tone": pos.emotional_tone
+                        } for pos in story_arc.positions
+                    ]
+                }
+
+            if customer_stories:
+                response_data["customer_stories"] = [
+                    {
+                        "company_name": story.company_name,
+                        "industry": story.industry,
+                        "challenge": story.challenge,
+                        "solution": story.solution,
+                        "outcome": story.outcome,
+                        "quote": story.quote,
+                        "metrics": story.metrics
+                    } for story in customer_stories
+                ]
+
+            # Add talk tracks from the presentation if available
+            if hasattr(presentation, 'talk_tracks') and presentation.talk_tracks:
+                response_data["talk_tracks"] = [
+                    {
+                        "slide_number": track.slide_number,
+                        "slide_title": track.slide_title,
+                        "speaker_notes": track.speaker_notes,
+                        "timing_minutes": track.timing_minutes,
+                        "key_transitions": track.key_transitions
+                    } for track in presentation.talk_tracks
+                ]
+
+        return response_data
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Presentation generation failed: {e}")
 
@@ -1071,6 +1360,524 @@ async def download_file(filename: str):
         filename=filename,
         media_type="application/zip"
     )
+
+
+# Content Research Endpoints
+
+@app.post("/features/{feature_id}/research")
+async def trigger_content_research(
+    feature_id: str,
+    request: ContentResearchRequest,
+    feature_storage: Optional[FeatureStorage] = Depends(get_feature_storage),
+    es_client = Depends(get_es_client)
+):
+    """Trigger content research for a specific feature."""
+    if not feature_storage:
+        raise HTTPException(status_code=503, detail="Feature storage not available")
+
+    try:
+        # Get the feature
+        feature = feature_storage.get_by_id(feature_id)
+        if not feature:
+            raise HTTPException(status_code=404, detail="Feature not found")
+
+        # Check if research already exists and force_refresh is not set
+        if (feature.content_research.status == "completed" and
+            not request.force_refresh):
+            return {
+                "status": "already_completed",
+                "message": "Content research already completed. Use force_refresh=true to regenerate.",
+                "feature_id": feature_id,
+                "last_updated": feature.content_research.last_updated.isoformat()
+            }
+
+        # Initialize content research service with AI and ES clients
+        research_service = ContentResearchService(
+            config=content_research_config,
+            ai_client=content_generator,  # Reuse existing AI client
+            elasticsearch_client=es_client
+        )
+
+        # Trigger research (this would normally be async/background)
+        updated_research = await research_service.research_feature_content(feature)
+
+        # Update feature with research results
+        feature.content_research = updated_research
+        feature_storage.store(feature)
+
+        return {
+            "status": "completed",
+            "message": "Content research completed successfully",
+            "feature_id": feature_id,
+            "research_status": updated_research.status.value,
+            "primary_sources_count": len(updated_research.primary_sources),
+            "related_sources_count": len(updated_research.related_sources),
+            "key_concepts_count": len(updated_research.extracted_content.key_concepts),
+            "embeddings_generated": bool(updated_research.embeddings.feature_summary)
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Content research failed: {e}")
+
+
+@app.get("/features/{feature_id}/research")
+async def get_content_research_status(
+    feature_id: str,
+    feature_storage: Optional[FeatureStorage] = Depends(get_feature_storage)
+):
+    """Get content research status for a feature."""
+    if not feature_storage:
+        raise HTTPException(status_code=503, detail="Feature storage not available")
+
+    try:
+        feature = feature_storage.get_by_id(feature_id)
+        if not feature:
+            raise HTTPException(status_code=404, detail="Feature not found")
+
+        research = feature.content_research
+
+        return {
+            "feature_id": feature_id,
+            "status": research.status.value,
+            "last_updated": research.last_updated.isoformat(),
+            "scraping_enabled": research.scraping_enabled,
+            "research_depth": research.research_depth.value,
+            "sources": {
+                "primary_count": len(research.primary_sources),
+                "related_count": len(research.related_sources),
+                "total_word_count": sum(s.word_count for s in research.primary_sources + research.related_sources)
+            },
+            "extracted_content": {
+                "key_concepts_count": len(research.extracted_content.key_concepts),
+                "use_cases_count": len(research.extracted_content.use_cases),
+                "config_examples_count": len(research.extracted_content.configuration_examples),
+                "prerequisites_count": len(research.extracted_content.prerequisites)
+            },
+            "ai_insights": {
+                "has_technical_summary": bool(research.ai_insights.technical_summary),
+                "has_business_value": bool(research.ai_insights.business_value),
+                "presentation_angles_count": len(research.ai_insights.presentation_angles),
+                "lab_scenarios_count": len(research.ai_insights.lab_scenarios)
+            },
+            "embeddings": {
+                "feature_summary": bool(research.embeddings.feature_summary),
+                "technical_content": bool(research.embeddings.technical_content),
+                "full_documentation": bool(research.embeddings.full_documentation)
+            }
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get research status: {e}")
+
+
+@app.get("/features/{feature_id}/research/detailed")
+async def get_detailed_content_research(
+    feature_id: str,
+    feature_storage: Optional[FeatureStorage] = Depends(get_feature_storage)
+):
+    """Get detailed content research data for a feature."""
+    if not feature_storage:
+        raise HTTPException(status_code=503, detail="Feature storage not available")
+
+    try:
+        feature = feature_storage.get_by_id(feature_id)
+        if not feature:
+            raise HTTPException(status_code=404, detail="Feature not found")
+
+        # Return the complete content research structure
+        # Note: This could be large, so in production you might want to paginate or limit
+        return {
+            "feature_id": feature_id,
+            "feature_name": feature.name,
+            "content_research": feature.content_research.model_dump()
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get detailed research: {e}")
+
+
+@app.post("/features/{feature_id}/research/search")
+async def semantic_search_features(
+    query: str,
+    search_field: str = "feature_summary",  # feature_summary, technical_content, full_documentation
+    limit: int = 10,
+    es_client = Depends(get_es_client)
+):
+    """Perform semantic search using ELSER embeddings."""
+    if not es_client:
+        raise HTTPException(status_code=503, detail="Elasticsearch not available")
+
+    try:
+        # Construct ELSER search query
+        search_query = {
+            "query": {
+                "text_expansion": {
+                    f"content_research.embeddings.{search_field}.elser_embedding": {
+                        "model_id": ".elser_model_2",
+                        "model_text": query
+                    }
+                }
+            },
+            "size": limit,
+            "_source": [
+                "id", "name", "description", "domain", "theme",
+                f"content_research.embeddings.{search_field}.text"
+            ]
+        }
+
+        response = await es_client.search(
+            index="elastic-whats-new-features",
+            body=search_query
+        )
+
+        results = []
+        for hit in response["hits"]["hits"]:
+            source = hit["_source"]
+            results.append({
+                "feature_id": source["id"],
+                "name": source["name"],
+                "description": source["description"],
+                "domain": source["domain"],
+                "theme": source.get("theme"),
+                "score": hit["_score"],
+                "embedding_text": source.get("content_research", {}).get("embeddings", {}).get(search_field, {}).get("text", "")[:200]
+            })
+
+        return {
+            "query": query,
+            "search_field": search_field,
+            "total_results": response["hits"]["total"]["value"],
+            "results": results
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Semantic search failed: {e}")
+
+
+# === Customer Story & Business Value Endpoints ===
+
+@app.post("/features/{feature_id}/customer-stories", response_model=CustomerStoryResponse)
+async def research_customer_stories(
+    feature_id: str,
+    request: CustomerStoryRequest,
+    feature_storage: FeatureStorage = Depends(get_feature_storage)
+):
+    """Generate customer success stories and business impact analysis for a specific feature."""
+    if not feature_storage:
+        raise HTTPException(status_code=503, detail="Feature storage not available")
+
+    try:
+        # Get the feature
+        feature = await feature_storage.get_feature(feature_id)
+        if not feature:
+            raise HTTPException(status_code=404, detail="Feature not found")
+
+        # Initialize customer story researcher
+        researcher = CustomerStoryResearcher()
+
+        # Research customer stories
+        customer_stories = await researcher.research_customer_stories(
+            feature,
+            count=3 if request.research_depth == "basic" else 5 if request.research_depth == "standard" else 8,
+            industry_focus=request.industry_focus
+        )
+
+        # Research business impact if requested
+        business_impact = {}
+        if request.include_metrics:
+            business_impact = await researcher.research_business_impact(feature)
+            business_impact = business_impact.model_dump() if hasattr(business_impact, 'model_dump') else business_impact
+
+        return CustomerStoryResponse(
+            feature_id=feature_id,
+            customer_stories=[story.model_dump() if hasattr(story, 'model_dump') else story for story in customer_stories],
+            business_impact=business_impact,
+            generated_at=datetime.now(timezone.utc),
+            research_depth=request.research_depth
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Customer story research failed: {e}")
+
+
+@app.post("/features/business-value", response_model=BusinessValueResponse)
+async def calculate_business_value(
+    request: BusinessValueRequest,
+    feature_storage: FeatureStorage = Depends(get_feature_storage)
+):
+    """Calculate business value and ROI for multiple features."""
+    if not feature_storage:
+        raise HTTPException(status_code=503, detail="Feature storage not available")
+
+    try:
+        # Get all features
+        features = []
+        for feature_id in request.feature_ids:
+            feature = await feature_storage.get_feature(feature_id)
+            if feature:
+                features.append(feature)
+
+        if not features:
+            raise HTTPException(status_code=404, detail="No valid features found")
+
+        # Initialize business value calculator
+        calculator = BusinessValueCalculator()
+
+        # Calculate ROI projection for the first feature (or aggregate logic could be added)
+        primary_feature = features[0]
+        roi_projection = calculator.calculate_roi_projection(primary_feature)
+
+        # Generate value drivers for all features
+        all_value_drivers = []
+        for feature in features:
+            drivers = calculator.generate_value_drivers(feature)
+            all_value_drivers.extend(drivers)
+
+        return BusinessValueResponse(
+            feature_ids=request.feature_ids,
+            roi_projection=roi_projection.model_dump() if hasattr(roi_projection, 'model_dump') else roi_projection,
+            value_drivers=all_value_drivers,
+            total_annual_savings=getattr(roi_projection, 'total_annual_savings', '$100K - $500K'),
+            payback_period=getattr(roi_projection, 'payback_period', '6-12 months'),
+            calculated_at=datetime.now(timezone.utc)
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Business value calculation failed: {e}")
+
+
+@app.post("/features/{feature_id}/competitive-analysis", response_model=CompetitivePositioningResponse)
+async def analyze_competitive_positioning(
+    feature_id: str,
+    request: CompetitivePositioningRequest,
+    feature_storage: FeatureStorage = Depends(get_feature_storage)
+):
+    """Generate competitive positioning analysis for a specific feature."""
+    if not feature_storage:
+        raise HTTPException(status_code=503, detail="Feature storage not available")
+
+    try:
+        # Get the feature
+        feature = await feature_storage.get_feature(feature_id)
+        if not feature:
+            raise HTTPException(status_code=404, detail="Feature not found")
+
+        # Initialize customer story researcher (which also handles competitive analysis)
+        researcher = CustomerStoryResearcher()
+
+        # Research competitive positioning
+        competitive_analysis = await researcher.research_competitive_positioning(
+            feature,
+            competitors=request.competitors
+        )
+
+        return CompetitivePositioningResponse(
+            feature_id=feature_id,
+            competitive_analysis=competitive_analysis.model_dump() if hasattr(competitive_analysis, 'model_dump') else competitive_analysis,
+            differentiators=getattr(competitive_analysis, 'differentiators', []),
+            market_position=getattr(competitive_analysis, 'market_position', 'Leading'),
+            competitor_comparison=getattr(competitive_analysis, 'competitor_comparison', {}),
+            analyzed_at=datetime.now(timezone.utc)
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Competitive analysis failed: {e}")
+
+
+# === End-to-End Presentation Generation ===
+
+@app.post("/presentations/complete-storytelling")
+async def generate_complete_storytelling_presentation(
+    request: PresentationGenerationRequest,
+    feature_storage: FeatureStorage = Depends(get_feature_storage)
+):
+    """
+    Generate a complete presentation with full story arcs, talk tracks, customer stories, and business value.
+    This endpoint provides end-to-end storytelling presentation generation.
+    """
+    if not feature_storage:
+        raise HTTPException(status_code=503, detail="Feature storage not available")
+
+    try:
+        # Get all features
+        features = []
+        for feature_id in request.feature_ids:
+            feature = await feature_storage.get_feature(feature_id)
+            if feature:
+                features.append(feature)
+
+        if not features:
+            raise HTTPException(status_code=404, detail="No valid features found")
+
+        # Initialize all storytelling components
+        story_arc_planner = StoryArcPlanner()
+        talk_track_generator = TalkTrackGenerator()
+        narrative_flow_analyzer = NarrativeFlowAnalyzer()
+        customer_story_researcher = CustomerStoryResearcher()
+        business_value_calculator = BusinessValueCalculator()
+
+        # Create comprehensive storytelling presentation
+        presentation_data = {
+            "metadata": {
+                "title": f"{request.domain.value.title()} Innovation Showcase",
+                "subtitle": f"Q{request.quarter.split('-')[0][1:]} {request.quarter.split('-')[1]} Release Highlights",
+                "domain": request.domain.value,
+                "audience": request.audience,
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "storytelling_enabled": request.storytelling_enabled,
+                "feature_count": len(features)
+            },
+            "story_arc": {},
+            "customer_stories": [],
+            "business_value": {},
+            "competitive_analysis": {},
+            "talk_tracks": [],
+            "slides": []
+        }
+
+        if request.storytelling_enabled:
+            # 1. Create Story Arc
+            content_request = ContentGenerationRequest(
+                domain=request.domain,
+                audience=request.audience,
+                narrative_style=request.narrative_style,
+                technical_depth=request.technical_depth
+            )
+
+            story_arc = story_arc_planner.create_story_arc(features, request.domain, content_request)
+            presentation_data["story_arc"] = {
+                "narrative_style": request.narrative_style,
+                "positions": [pos.value for pos in story_arc.positions] if hasattr(story_arc, 'positions') else [],
+                "themes": [theme.value for theme in story_arc.themes] if hasattr(story_arc, 'themes') else [],
+                "total_duration": getattr(story_arc, 'estimated_duration', 25)
+            }
+
+            # 2. Generate Customer Stories (if requested)
+            if request.include_customer_stories:
+                for feature in features[:3]:  # Limit to first 3 features for performance
+                    try:
+                        customer_stories = await customer_story_researcher.research_customer_stories(feature, count=2)
+                        business_impact = await customer_story_researcher.research_business_impact(feature)
+
+                        presentation_data["customer_stories"].append({
+                            "feature_id": feature.id,
+                            "feature_name": feature.name,
+                            "stories": [story.model_dump() if hasattr(story, 'model_dump') else story for story in customer_stories],
+                            "business_impact": business_impact.model_dump() if hasattr(business_impact, 'model_dump') else business_impact
+                        })
+                    except Exception as e:
+                        print(f"Warning: Could not generate customer stories for {feature.name}: {e}")
+
+            # 3. Calculate Business Value
+            try:
+                primary_feature = features[0]
+                roi_projection = business_value_calculator.calculate_roi_projection(primary_feature)
+                value_drivers = []
+                for feature in features:
+                    drivers = business_value_calculator.generate_value_drivers(feature)
+                    value_drivers.extend(drivers)
+
+                presentation_data["business_value"] = {
+                    "roi_projection": roi_projection.model_dump() if hasattr(roi_projection, 'model_dump') else roi_projection,
+                    "value_drivers": value_drivers,
+                    "total_annual_savings": getattr(roi_projection, 'total_annual_savings', '$500K - $2M'),
+                    "payback_period": getattr(roi_projection, 'payback_period', '6-12 months')
+                }
+            except Exception as e:
+                print(f"Warning: Could not calculate business value: {e}")
+
+            # 4. Competitive Analysis (if requested)
+            if request.competitive_positioning:
+                try:
+                    primary_feature = features[0]
+                    competitive_analysis = await customer_story_researcher.research_competitive_positioning(primary_feature)
+                    presentation_data["competitive_analysis"] = {
+                        "feature_id": primary_feature.id,
+                        "analysis": competitive_analysis.model_dump() if hasattr(competitive_analysis, 'model_dump') else competitive_analysis,
+                        "generated_for": primary_feature.name
+                    }
+                except Exception as e:
+                    print(f"Warning: Could not generate competitive analysis: {e}")
+
+        # 5. Generate Enhanced Slides with Storytelling
+        unified_generator = UnifiedPresentationGenerator()
+
+        # Generate the main content
+        slides_content = await unified_generator.generate_unified_presentation(
+            features,
+            quarter=request.quarter,
+            audience=request.audience
+        )
+
+        # Enhance slides with storytelling elements
+        enhanced_slides = []
+        for i, slide in enumerate(slides_content.get("slides", [])):
+            enhanced_slide = {
+                "slide_number": i + 1,
+                "title": slide.get("title", f"Slide {i + 1}"),
+                "content": slide.get("content", ""),
+                "talking_points": slide.get("talking_points", []),
+                "story_position": presentation_data["story_arc"].get("positions", ["introduction"])[min(i, len(presentation_data["story_arc"].get("positions", [])) - 1)],
+                "estimated_duration": slide.get("duration", 2.5)
+            }
+
+            # Add storytelling enhancements if enabled
+            if request.storytelling_enabled and i < len(features):
+                feature = features[i]
+                try:
+                    from src.core.storytelling import StoryPosition
+                    story_position = StoryPosition.OPENING_HOOK if i == 0 else StoryPosition.PROBLEM_BUILD
+
+                    talk_track = talk_track_generator.generate_talk_track(
+                        feature,
+                        story_position,
+                        detail_level=request.talk_track_detail,
+                        technical_depth=request.technical_depth
+                    )
+
+                    enhanced_slide["talk_track"] = {
+                        "opening_statement": getattr(talk_track, 'opening_statement', ''),
+                        "key_points": getattr(talk_track, 'key_points', []),
+                        "transitions": getattr(talk_track, 'transitions', []),
+                        "estimated_duration": getattr(talk_track, 'estimated_duration', 2.5)
+                    }
+                except Exception as e:
+                    print(f"Warning: Could not generate talk track for slide {i + 1}: {e}")
+
+            enhanced_slides.append(enhanced_slide)
+
+        presentation_data["slides"] = enhanced_slides
+
+        # 6. Generate Summary and Analytics
+        presentation_data["summary"] = {
+            "total_slides": len(enhanced_slides),
+            "estimated_duration": sum(slide.get("estimated_duration", 2.5) for slide in enhanced_slides),
+            "storytelling_features": {
+                "story_arc": bool(presentation_data["story_arc"]),
+                "customer_stories": len(presentation_data["customer_stories"]) > 0,
+                "business_value": bool(presentation_data["business_value"]),
+                "competitive_analysis": bool(presentation_data["competitive_analysis"]),
+                "talk_tracks": any("talk_track" in slide for slide in enhanced_slides)
+            },
+            "feature_distribution": {
+                feature.domain.value: len([f for f in features if f.domain == feature.domain])
+                for feature in features
+            }
+        }
+
+        return {
+            "success": True,
+            "presentation_id": f"storytelling-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}",
+            "presentation": presentation_data,
+            "generation_metadata": {
+                "request_parameters": request.model_dump(),
+                "processing_time": "Generated in real-time",
+                "api_version": "v1.0-storytelling"
+            }
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Complete storytelling presentation generation failed: {e}")
 
 
 # Development server runner
