@@ -18,19 +18,25 @@ Stage 1: Content Extraction & Caching
 │         │    │Metadata │    │   ES    │    │  Reuse  │
 └─────────┘    └─────────┘    └─────────┘    └─────────┘
 
-Stage 2: Presentation Generation
-┌─────────┐    ┌─────────┐    ┌─────────┐
-│  Load   │ -> │   LLM   │ -> │  7-Slide│
-│ Cached  │    │Generate │    │   Pres  │
-│ Content │    │  Pres   │    │w/ Tracks│
-└─────────┘    └─────────┘    └─────────┘
+Stage 2: Content Generation (Presentations & Labs)
+┌─────────┐    ┌─────────┐    ┌─────────────────────────┐
+│  Load   │ -> │   LLM   │ -> │  7-Slide Presentation   │
+│ Cached  │    │Generate │    │  w/ Talk Tracks         │
+│ Content │    │         │    │                         │
+│         │    │         │    │  OR                     │
+│         │    │         │    │                         │
+│         │    │         │    │  Story-Driven Lab       │
+│         │    │         │    │  w/ Datasets & Challenges│
+└─────────┘    └─────────┘    └─────────────────────────┘
 ```
 
 **Benefits:**
-- ✅ Extract once, generate many presentations
-- ✅ 90%+ reduction in LLM API calls
-- ✅ Fast presentation generation (seconds vs. minutes)
+- ✅ Extract once, generate many presentations and labs
+- ✅ 90%+ reduction in LLM API calls through caching
+- ✅ Fast content generation (seconds vs. minutes)
 - ✅ Consistent quality across all outputs
+- ✅ Story-driven labs with realistic scenarios and datasets
+- ✅ Progressive challenges with complete solutions
 
 ### Multi-Provider LLM Support
 - **OpenAI** (gpt-4o, gpt-4o-mini) - Default, cost-effective
