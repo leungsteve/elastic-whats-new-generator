@@ -71,7 +71,7 @@ class ContentResearchConfig:
             "elastic.co": {
                 "priority": 1.0,
                 "rate_limit": 2.0,
-                "content_selectors": [".content", ".main", "#main-content"],
+                "content_selectors": ["article", "main", ".guide-content", ".guide-section"],
                 "exclude_selectors": [".navigation", ".footer", ".sidebar"]
             },
             "github.com": {
@@ -284,7 +284,16 @@ class ContentResearchService:
 
         # Get domain-specific selectors
         domain = urlparse(url).netloc
-        domain_rules = self.config.domain_rules.get(domain, {})
+        # Handle www. subdomains by checking both full domain and without www.
+        domains_to_check = [domain]
+        if domain.startswith('www.'):
+            domains_to_check.append(domain[4:])
+
+        domain_rules = {}
+        for d in domains_to_check:
+            if d in self.config.domain_rules:
+                domain_rules = self.config.domain_rules[d]
+                break
         content_selectors = domain_rules.get('content_selectors', ['.content', '.main', 'main', 'article'])
 
         # Try domain-specific selectors first

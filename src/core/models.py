@@ -301,10 +301,10 @@ class SlideContent(BaseModel):
     content: str = Field(..., description="Main slide content")
     business_value: str = Field(..., description="Business value proposition")
     theme: Theme = Field(..., description="Associated innovation theme")
-    story_position: StoryPosition = Field(..., description="Position in narrative arc")
+    story_position: Optional[StoryPosition] = Field(None, description="Position in narrative arc")
 
     # Enhanced talk track system
-    talk_track: TalkTrack = Field(..., description="Comprehensive speaker guidance")
+    talk_track: Optional[TalkTrack] = Field(None, description="Comprehensive speaker guidance")
 
     # Supporting content
     customer_stories: List[CustomerStory] = Field(default_factory=list, description="Relevant customer success stories")
@@ -393,9 +393,9 @@ class Presentation(BaseModel):
     generated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Enhanced storytelling components
-    story_arc: StoryArc = Field(..., description="Complete story arc plan")
+    story_arc: Optional[StoryArc] = Field(None, description="Complete story arc plan")
     narrative_flow: Optional[NarrativeFlow] = Field(None, description="Narrative flow analysis")
-    audience_adaptation: AudienceAdaptation = Field(..., description="Audience-specific adaptations")
+    audience_adaptation: Optional[AudienceAdaptation] = Field(None, description="Audience-specific adaptations")
     total_talk_time_minutes: float = Field(default=30.0, description="Total estimated presentation time")
     confidence_requirements: Dict[str, str] = Field(default_factory=dict, description="Speaker skill requirements per section")
 

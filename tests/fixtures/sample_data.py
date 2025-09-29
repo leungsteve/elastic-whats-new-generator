@@ -22,8 +22,8 @@ def get_sample_search_features():
                 "Lower infrastructure costs"
             ],
             documentation_links=[
-                "https://www.elastic.co/blog/better-binary-quantization-in-elasticsearch",
-                "https://www.elastic.co/guide/en/elasticsearch/reference/current/bbq.html"
+                "https://www.elastic.co/guide/en/elasticsearch/reference/current/knn-search.html",
+                "https://www.elastic.co/guide/en/elasticsearch/reference/current/dense-vector.html"
             ],
             theme=Theme.OPTIMIZE,
             domain=Domain.SEARCH,
@@ -39,7 +39,7 @@ def get_sample_search_features():
                 "Better relevance for large datasets"
             ],
             documentation_links=[
-                "https://www.elastic.co/blog/acorn-retrieval"
+                "https://www.elastic.co/guide/en/elasticsearch/reference/current/search-search.html"
             ],
             theme=Theme.OPTIMIZE,
             domain=Domain.SEARCH
@@ -55,7 +55,7 @@ def get_sample_search_features():
                 "Integration with popular LLMs"
             ],
             documentation_links=[
-                "https://www.elastic.co/guide/en/elasticsearch/reference/current/agent-builder.html"
+                "https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations.html"
             ],
             theme=Theme.AI_INNOVATION,
             domain=Domain.SEARCH
@@ -92,7 +92,7 @@ def get_sample_observability_features():
                 "Simplified alert management"
             ],
             documentation_links=[
-                "https://www.elastic.co/guide/en/observability/current/autoops.html"
+                "https://www.elastic.co/guide/en/observability/current/observability-introduction.html"
             ],
             theme=Theme.SIMPLIFY,
             domain=Domain.OBSERVABILITY

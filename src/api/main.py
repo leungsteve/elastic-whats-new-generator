@@ -24,6 +24,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from src.core.models import Feature, Domain, Theme, SlideContent, LabInstruction, ContentResearch
+from src.core.models import ContentGenerationRequest as StorytellingContentGenerationRequest
 from src.core.classifier import FeatureClassifier
 from src.core.generators.content_generator import ContentGenerator
 from src.core.generators.presentation_generator import PresentationGenerator
@@ -699,12 +700,25 @@ async def generate_complete_presentation(
         customer_stories = []
 
         if request.storytelling_enabled:
-            # Generate story arc
-            story_arc = await story_arc_planner.plan_story_arc(
+            # Create ContentGenerationRequest for story arc planning
+            content_request = StorytellingContentGenerationRequest(
                 features=features,
-                narrative_style=request.narrative_style,
                 domain=request.domain,
-                audience=request.audience
+                content_type="presentation",
+                audience=request.audience,
+                storytelling_enabled=request.storytelling_enabled,
+                narrative_style=request.narrative_style,
+                talk_track_detail_level=request.talk_track_detail,
+                technical_depth=request.technical_depth,
+                include_customer_stories=request.include_customer_stories,
+                competitive_positioning=request.competitive_positioning
+            )
+
+            # Generate story arc
+            story_arc = story_arc_planner.create_story_arc(
+                features=features,
+                domain=request.domain,
+                request=content_request
             )
 
             # Generate customer stories if requested
@@ -717,17 +731,9 @@ async def generate_complete_presentation(
                     customer_stories.extend(feature_stories)
 
         # Use enhanced content generator with storytelling
-        presentation = await content_generator.generate_complete_presentation(
+        presentation = content_generator.generate_complete_presentation(
             features=features,
-            domain=request.domain,
-            quarter=request.quarter,
-            audience=request.audience,
-            narrative_style=request.narrative_style,
-            talk_track_detail=request.talk_track_detail,
-            technical_depth=request.technical_depth,
-            include_customer_stories=request.include_customer_stories,
-            competitive_positioning=request.competitive_positioning,
-            storytelling_enabled=request.storytelling_enabled
+            request=content_request
         )
 
         # Convert to API response format
