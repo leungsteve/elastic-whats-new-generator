@@ -70,6 +70,7 @@ Stage 2: Content Generation (Presentations & Labs)
   - **Advanced Storytelling Controls**: Narrative style, talk track detail, technical depth
   - **Enhanced Previews**: Story arc overview, talk track previews, customer story summaries
   - **Cross-Tab Functionality**: Consistent filtering across Features, Presentations, and Labs tabs
+  - **Analytics Dashboard**: Real-time LLM usage tracking, cost monitoring, and content history browser
 
 - **Story-Driven Lab Generation** 🧪:
   - **Realistic Business Scenarios**: Compelling narratives (e.g., "Black Friday retail analysis")
@@ -138,6 +139,84 @@ The system now includes specialized API endpoints for advanced storytelling feat
 - **Competitive Positioning**: Market analysis and differentiation messaging
 - **Customer Story Research**: Real-world success stories with quantified outcomes
 
+## 📊 LLM Usage Tracking & Content Storage
+
+**NEW**: Complete observability for LLM operations and generated content!
+
+### Automatic LLM Usage Tracking
+Every LLM API call is automatically logged to Elasticsearch with:
+- **Provider & Model**: OpenAI, Gemini, or Claude with specific model version
+- **Full Prompts & Responses**: Complete system and user prompts with generated text
+- **Token Usage**: Prompt tokens, completion tokens, and total token counts
+- **Cost Estimation**: Real-time cost tracking with per-call USD estimates
+  - OpenAI gpt-4o: $0.0025/$0.01 per 1K tokens (prompt/completion)
+  - OpenAI gpt-4o-mini: $0.00015/$0.0006 per 1K tokens
+  - Gemini 1.5 Flash: $0.000075/$0.0003 per 1K tokens
+  - Claude 3 Sonnet: $0.003/$0.015 per 1K tokens
+- **Performance Metrics**: Response times and success/failure status
+- **Context**: Operation type, feature IDs, and domain associations
+
+### Generated Content Storage
+All presentations and labs are automatically saved with:
+- **Full Markdown Content**: Complete presentation/lab markdown
+- **Structured Data**: Slides, challenges, datasets in JSON format
+- **Generation Parameters**: Audience, narrative style, technical depth
+- **Feature Associations**: Linked feature IDs and names
+- **Searchable Tags**: Domain, content type, and custom tags
+- **Version Control**: Track content iterations over time
+
+### Analytics Dashboard
+Access comprehensive analytics via the web UI's **Analytics** tab:
+
+**Summary Metrics**:
+- Total LLM calls and costs
+- Average response times
+- Success rates
+
+**Visual Breakdowns**:
+- Usage by provider (OpenAI vs. Gemini vs. Claude)
+- Usage by operation (extract, generate_presentation, generate_lab)
+
+**Content History Browser**:
+- Browse all generated presentations and labs
+- Filter by type (presentation/lab) and domain
+- One-click markdown download
+- View generation parameters and metadata
+
+**Activity Log**:
+- Real-time LLM call history
+- Status indicators (success/error)
+- Token usage and cost per call
+
+### REST API Endpoints
+Query tracking data programmatically:
+
+```bash
+# Get usage analytics
+GET /api/llm-usage/analytics
+GET /api/llm-usage/logs?operation_type=generate_presentation&size=50
+
+# Query generated content
+GET /api/generated-content?content_type=presentation&domain=search
+GET /api/generated-content/{content_id}
+GET /api/generated-content/{content_id}/markdown
+
+# Get specific LLM log
+GET /api/llm-usage/{log_id}
+```
+
+### Elasticsearch Indices
+- **`llm-usage-logs`**: Complete LLM call history with prompts, responses, and metrics
+- **`generated-content`**: All presentations and labs with full metadata
+
+### Benefits
+- ✅ **Cost Transparency**: Track spend across all LLM providers
+- ✅ **Historical Access**: Never lose generated content
+- ✅ **Performance Monitoring**: Identify slow operations
+- ✅ **Audit Trail**: Complete record of all LLM usage
+- ✅ **Self-Service**: Users can browse and download any previously generated content
+- ✅ **Data-Driven Optimization**: Analyze usage patterns to optimize prompts and reduce costs
+
 ## 🎨 Customizable LLM Prompts
 
 **NEW**: Customize how presentations and labs are generated!
@@ -201,7 +280,14 @@ cp .env.example .env
 ```bash
 # Start local Elasticsearch or configure cloud instance
 # Update ELASTICSEARCH_URL in .env
+
+# The system will automatically create these indices on first use:
+# - elastic-features (feature storage)
+# - llm-usage-logs (LLM tracking)
+# - generated-content (presentation/lab storage)
 ```
+
+**Note**: LLM usage tracking and content storage are enabled automatically when Elasticsearch is configured. All LLM calls and generated content will be logged for analytics and historical access.
 
 ## 🎮 Usage
 

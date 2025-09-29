@@ -49,6 +49,10 @@
                             <i class="fas fa-download"></i>
                             <span>Exports</span>
                         </li>
+                        <li class="nav-item" data-tab="analytics">
+                            <i class="fas fa-chart-line"></i>
+                            <span>Analytics</span>
+                        </li>
                     </ul>
                 </nav>
 
@@ -348,6 +352,94 @@
                         <h3>Recent Exports</h3>
                         <div class="export-list" id="export-list">
                             <!-- Export history will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Analytics Tab -->
+                <div id="analytics-tab" class="tab-content">
+                    <div class="tab-header">
+                        <h2><i class="fas fa-chart-line"></i> LLM Usage Analytics & Content History</h2>
+                    </div>
+
+                    <!-- Analytics Summary Cards -->
+                    <div class="analytics-summary">
+                        <div class="stat-card">
+                            <div class="stat-icon"><i class="fas fa-robot"></i></div>
+                            <div class="stat-content">
+                                <h3 id="total-llm-calls">-</h3>
+                                <p>Total LLM Calls</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon"><i class="fas fa-coins"></i></div>
+                            <div class="stat-content">
+                                <h3 id="total-cost">-</h3>
+                                <p>Total Cost (USD)</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon"><i class="fas fa-tachometer-alt"></i></div>
+                            <div class="stat-content">
+                                <h3 id="avg-response-time">-</h3>
+                                <p>Avg Response Time</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+                            <div class="stat-content">
+                                <h3 id="success-rate">-</h3>
+                                <p>Success Rate</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Analytics Charts -->
+                    <div class="analytics-section">
+                        <h3>Usage Breakdown</h3>
+                        <div class="analytics-grid">
+                            <div class="analytics-card">
+                                <h4>By Provider</h4>
+                                <div id="provider-chart" class="chart-container">
+                                    <!-- Provider breakdown will be rendered here -->
+                                </div>
+                            </div>
+                            <div class="analytics-card">
+                                <h4>By Operation</h4>
+                                <div id="operation-chart" class="chart-container">
+                                    <!-- Operation breakdown will be rendered here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Generated Content History -->
+                    <div class="analytics-section">
+                        <h3>Generated Content History</h3>
+                        <div class="content-filters">
+                            <select id="content-type-filter" onchange="window.app.filterGeneratedContent()">
+                                <option value="">All Types</option>
+                                <option value="presentation">Presentations</option>
+                                <option value="lab">Labs</option>
+                            </select>
+                            <select id="content-domain-filter" onchange="window.app.filterGeneratedContent()">
+                                <option value="">All Domains</option>
+                                <option value="search">Search</option>
+                                <option value="observability">Observability</option>
+                                <option value="security">Security</option>
+                                <option value="all_domains">All Domains (Unified)</option>
+                            </select>
+                        </div>
+                        <div id="generated-content-list" class="content-history-list">
+                            <!-- Generated content history will be loaded here -->
+                        </div>
+                    </div>
+
+                    <!-- Recent LLM Logs -->
+                    <div class="analytics-section">
+                        <h3>Recent LLM Activity</h3>
+                        <div id="llm-logs-list" class="logs-list">
+                            <!-- Recent LLM logs will be loaded here -->
                         </div>
                     </div>
                 </div>

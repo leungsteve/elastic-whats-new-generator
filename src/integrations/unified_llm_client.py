@@ -49,7 +49,8 @@ class UnifiedLLMClient:
         model: Optional[str] = None,
         max_tokens: int = 4096,
         temperature: float = 0.7,
-        openai_base_url: Optional[str] = None
+        openai_base_url: Optional[str] = None,
+        usage_storage: Optional['LLMUsageStorage'] = None
     ):
         """
         Initialize unified LLM client.
@@ -63,9 +64,11 @@ class UnifiedLLMClient:
             max_tokens: Maximum tokens in response
             temperature: Sampling temperature
             openai_base_url: Custom base URL for OpenAI API (for proxies)
+            usage_storage: Optional LLMUsageStorage for tracking usage
         """
         self.max_tokens = max_tokens
         self.temperature = temperature
+        self.usage_storage = usage_storage
 
         # Get API keys from environment if not provided
         self.openai_api_key = openai_api_key or os.getenv("OPENAI_API_KEY")
@@ -157,17 +160,34 @@ class UnifiedLLMClient:
         wait=wait_exponential(multiplier=1, min=2, max=10),
         reraise=True
     )
-    def _call_llm(self, system_prompt: str, user_prompt: str) -> str:
+    def _call_llm(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        operation_type: str = "unknown",
+        feature_ids: Optional[List[str]] = None,
+        domain: Optional[str] = None
+    ) -> str:
         """
-        Make LLM API call with provider-specific handling.
+        Make LLM API call with provider-specific handling and usage tracking.
 
         Args:
             system_prompt: System prompt
             user_prompt: User prompt
+            operation_type: Type of operation (extract, generate_presentation, generate_lab)
+            feature_ids: Optional list of feature IDs involved
+            domain: Optional domain context
 
         Returns:
             Response text
         """
+        import time
+        start_time = time.time()
+        success = False
+        error_message = None
+        response_text = ""
+        token_usage = None
+
         try:
             if self.provider == LLMProvider.OPENAI:
                 response = self.client.chat.completions.create(
@@ -179,7 +199,16 @@ class UnifiedLLMClient:
                     max_tokens=self.max_tokens,
                     temperature=self.temperature
                 )
-                return response.choices[0].message.content
+                response_text = response.choices[0].message.content
+                # Extract token usage if available
+                if hasattr(response, 'usage'):
+                    token_usage = {
+                        "prompt_tokens": response.usage.prompt_tokens,
+                        "completion_tokens": response.usage.completion_tokens,
+                        "total_tokens": response.usage.total_tokens
+                    }
+                success = True
+                return response_text
 
             elif self.provider == LLMProvider.GEMINI:
                 # Gemini combines system and user prompts
@@ -191,7 +220,9 @@ class UnifiedLLMClient:
                         "temperature": self.temperature
                     }
                 )
-                return response.text
+                response_text = response.text
+                success = True
+                return response_text
 
             elif self.provider == LLMProvider.CLAUDE:
                 response = self.client.messages.create(
@@ -201,11 +232,105 @@ class UnifiedLLMClient:
                     system=system_prompt,
                     messages=[{"role": "user", "content": user_prompt}]
                 )
-                return response.content[0].text
+                response_text = response.content[0].text
+                # Extract token usage if available
+                if hasattr(response, 'usage'):
+                    token_usage = {
+                        "prompt_tokens": response.usage.input_tokens,
+                        "completion_tokens": response.usage.output_tokens,
+                        "total_tokens": response.usage.input_tokens + response.usage.output_tokens
+                    }
+                success = True
+                return response_text
 
         except Exception as e:
+            error_message = str(e)
             logger.error(f"{self.provider.value} API error: {e}")
             raise
+        finally:
+            # Log usage if storage is available
+            response_time = time.time() - start_time
+            if self.usage_storage:
+                try:
+                    self._log_usage(
+                        system_prompt=system_prompt,
+                        user_prompt=user_prompt,
+                        response_text=response_text,
+                        operation_type=operation_type,
+                        feature_ids=feature_ids or [],
+                        domain=domain,
+                        token_usage=token_usage,
+                        response_time_seconds=response_time,
+                        success=success,
+                        error_message=error_message
+                    )
+                except Exception as log_error:
+                    logger.warning(f"Failed to log LLM usage: {log_error}")
+
+    def _log_usage(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        response_text: str,
+        operation_type: str,
+        feature_ids: List[str],
+        domain: Optional[str],
+        token_usage: Optional[Dict[str, int]],
+        response_time_seconds: float,
+        success: bool,
+        error_message: Optional[str]
+    ):
+        """Log LLM usage to Elasticsearch."""
+        from src.core.models import LLMUsageLog
+
+        # Estimate cost based on provider and tokens
+        estimated_cost = self._estimate_cost(token_usage)
+
+        log_entry = LLMUsageLog(
+            provider=self.provider.value,
+            model=self.model,
+            operation_type=operation_type,
+            feature_ids=feature_ids,
+            domain=domain,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            response_text=response_text,
+            token_usage=token_usage,
+            response_time_seconds=response_time_seconds,
+            success=success,
+            error_message=error_message,
+            estimated_cost_usd=estimated_cost
+        )
+
+        self.usage_storage.log(log_entry)
+        logger.info(f"Logged LLM usage: {log_entry.id} ({operation_type})")
+
+    def _estimate_cost(self, token_usage: Optional[Dict[str, int]]) -> Optional[float]:
+        """Estimate cost in USD based on provider and token usage."""
+        if not token_usage:
+            return None
+
+        # Cost per 1K tokens (approximate as of 2025)
+        costs = {
+            LLMProvider.OPENAI: {
+                "gpt-4o": {"prompt": 0.0025, "completion": 0.01},
+                "gpt-4o-mini": {"prompt": 0.00015, "completion": 0.0006}
+            },
+            LLMProvider.GEMINI: {
+                "gemini-1.5-flash": {"prompt": 0.000075, "completion": 0.0003}
+            },
+            LLMProvider.CLAUDE: {
+                "claude-3-sonnet-20240229": {"prompt": 0.003, "completion": 0.015}
+            }
+        }
+
+        provider_costs = costs.get(self.provider, {})
+        model_costs = provider_costs.get(self.model, {"prompt": 0, "completion": 0})
+
+        prompt_cost = (token_usage.get("prompt_tokens", 0) / 1000.0) * model_costs.get("prompt", 0)
+        completion_cost = (token_usage.get("completion_tokens", 0) / 1000.0) * model_costs.get("completion", 0)
+
+        return prompt_cost + completion_cost
 
     def extract_content(
         self,
@@ -259,7 +384,13 @@ DOCUMENTATION CONTENT:
 Extract the key information in the required JSON format."""
 
         try:
-            response_text = self._call_llm(system_prompt, user_prompt)
+            response_text = self._call_llm(
+                system_prompt,
+                user_prompt,
+                operation_type="extract",
+                feature_ids=[feature_name],
+                domain=None
+            )
             response_data = self._parse_json_response(response_text)
 
             # Validate required fields
@@ -418,7 +549,14 @@ Classify each feature into one of the three themes and create a cohesive story."
         )
 
         try:
-            response_text = self._call_llm(system_prompt, user_prompt)
+            feature_ids = [f.id for f in features]
+            response_text = self._call_llm(
+                system_prompt,
+                user_prompt,
+                operation_type="generate_presentation",
+                feature_ids=feature_ids,
+                domain=domain
+            )
             presentation_data = self._parse_json_response(response_text)
 
             if "slides" not in presentation_data:
@@ -522,7 +660,14 @@ Create an engaging lab with sample data and ES|QL queries.""")
         )
 
         try:
-            response_text = self._call_llm(system_prompt, user_prompt)
+            feature_ids = [f.id for f in features]
+            response_text = self._call_llm(
+                system_prompt,
+                user_prompt,
+                operation_type="generate_lab",
+                feature_ids=feature_ids,
+                domain=domain
+            )
             lab_data = self._parse_json_response(response_text)
 
             logger.info(f"Generated lab: {lab_data.get('title', 'Untitled')}")
@@ -557,7 +702,13 @@ Create an engaging lab with sample data and ES|QL queries.""")
     def health_check(self) -> bool:
         """Verify API connectivity."""
         try:
-            response = self._call_llm("You are a helpful assistant.", "Respond with 'ok'")
+            response = self._call_llm(
+                "You are a helpful assistant.",
+                "Respond with 'ok'",
+                operation_type="health_check",
+                feature_ids=[],
+                domain=None
+            )
             return "ok" in response.lower()
         except Exception as e:
             logger.error(f"Health check failed: {e}")

@@ -9,6 +9,7 @@ from enum import Enum
 from typing import List, Optional, Dict, Any, Union
 from datetime import datetime, timezone
 from pydantic import BaseModel, Field, field_validator, ConfigDict
+import uuid
 
 
 class Theme(str, Enum):
@@ -556,6 +557,76 @@ class GenerationMetrics(BaseModel):
     success: bool = Field(..., description="Whether operation succeeded")
     error_message: Optional[str] = Field(None, description="Error message if failed")
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    model_config = ConfigDict(
+        json_encoders={
+            datetime: lambda v: v.isoformat()
+        }
+    )
+
+class LLMUsageLog(BaseModel):
+    """Log entry for LLM API calls with full prompt/response tracking."""
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), description="Unique log entry ID")
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="When the LLM call was made")
+
+    # LLM Provider Details
+    provider: str = Field(..., description="LLM provider (openai, gemini, claude)")
+    model: str = Field(..., description="Model used (gpt-4o, gemini-1.5-flash, etc)")
+
+    # Request Details
+    operation_type: str = Field(..., description="Operation type (extract, generate_presentation, generate_lab)")
+    feature_ids: List[str] = Field(default_factory=list, description="Feature IDs involved in this operation")
+    domain: Optional[str] = Field(None, description="Domain context (search, observability, security)")
+
+    # Prompt & Response
+    system_prompt: str = Field(..., description="System prompt sent to LLM")
+    user_prompt: str = Field(..., description="User prompt sent to LLM")
+    response_text: str = Field(..., description="Full LLM response")
+
+    # Metadata
+    token_usage: Optional[Dict[str, int]] = Field(None, description="Token usage breakdown (prompt_tokens, completion_tokens, total_tokens)")
+    response_time_seconds: float = Field(..., description="Response time in seconds")
+    success: bool = Field(..., description="Whether the LLM call succeeded")
+    error_message: Optional[str] = Field(None, description="Error message if failed")
+
+    # Cost Estimation
+    estimated_cost_usd: Optional[float] = Field(None, description="Estimated cost in USD")
+
+    model_config = ConfigDict(
+        json_encoders={
+            datetime: lambda v: v.isoformat()
+        }
+    )
+
+
+class GeneratedContent(BaseModel):
+    """Stored generated presentations and labs for future reference."""
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), description="Unique content ID")
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="When content was generated")
+
+    # Content Classification
+    content_type: str = Field(..., description="Type of content (presentation, lab)")
+    title: str = Field(..., description="Content title")
+    domain: str = Field(..., description="Domain (search, observability, security, all_domains)")
+
+    # Source Features
+    feature_ids: List[str] = Field(..., description="Feature IDs used to generate this content")
+    feature_names: List[str] = Field(default_factory=list, description="Feature names for easy reference")
+
+    # Generated Content
+    markdown_content: str = Field(..., description="Full markdown output")
+    structured_data: Optional[Dict[str, Any]] = Field(None, description="Structured JSON representation (slides, challenges, etc)")
+
+    # Generation Parameters
+    generation_params: Dict[str, Any] = Field(default_factory=dict, description="Parameters used for generation")
+    llm_usage_log_id: Optional[str] = Field(None, description="Reference to LLM usage log entry")
+
+    # Metadata
+    user_id: Optional[str] = Field(None, description="User who generated the content")
+    tags: List[str] = Field(default_factory=list, description="Tags for categorization")
+    version: int = Field(default=1, description="Version number if regenerated")
 
     model_config = ConfigDict(
         json_encoders={

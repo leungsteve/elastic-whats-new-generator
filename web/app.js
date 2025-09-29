@@ -86,6 +86,9 @@ class ElasticGenerator {
             case 'exports':
                 this.loadExportHistory();
                 break;
+            case 'analytics':
+                this.loadAnalytics();
+                break;
         }
     }
 
@@ -1562,6 +1565,179 @@ class ElasticGenerator {
             toast.classList.remove('show');
         }, 3000);
     }
+
+    // Analytics Functions
+    async loadAnalytics() {
+        try {
+            await Promise.all([
+                this.loadAnalyticsSummary(),
+                this.loadGeneratedContent(),
+                this.loadLLMLogs()
+            ]);
+        } catch (error) {
+            console.error('Failed to load analytics:', error);
+        }
+    }
+
+    async loadAnalyticsSummary() {
+        try {
+            const response = await fetch('/api/llm-usage/analytics');
+            const data = await response.json();
+            const analytics = data.analytics;
+
+            // Update summary cards
+            document.getElementById('total-llm-calls').textContent = analytics.total_calls || 0;
+            const totalCost = analytics.total_cost_usd || 0;
+            document.getElementById('total-cost').textContent = `$${totalCost.toFixed(6)}`;
+            const avgTime = analytics.avg_response_time_seconds || 0;
+            document.getElementById('avg-response-time').textContent = avgTime > 0 ? `${avgTime.toFixed(2)}s` : '-';
+            const successRate = analytics.success_rate || 0;
+            document.getElementById('success-rate').textContent = `${(successRate * 100).toFixed(1)}%`;
+
+            // Render provider chart
+            this.renderChart('provider-chart', analytics.by_provider);
+
+            // Render operation chart
+            this.renderChart('operation-chart', analytics.by_operation);
+        } catch (error) {
+            console.error('Failed to load analytics summary:', error);
+        }
+    }
+
+    renderChart(containerId, data) {
+        const container = document.getElementById(containerId);
+        if (!data || Object.keys(data).length === 0) {
+            container.innerHTML = '<p style="color: #718096; text-align: center; padding: 40px;">No data available</p>';
+            return;
+        }
+
+        // Find max value for scaling
+        const maxValue = Math.max(...Object.values(data));
+
+        // Create bar chart
+        let html = '';
+        for (const [key, value] of Object.entries(data)) {
+            const percentage = (value / maxValue) * 100;
+            html += `<div class="chart-bar"><div class="chart-label">${key}</div><div class="chart-bar-visual" style="width: ${percentage}%"></div><div class="chart-value">${value}</div></div>`;
+        }
+        container.innerHTML = html;
+    }
+
+    async loadGeneratedContent() {
+        try {
+            const response = await fetch('/api/generated-content?size=20');
+            const data = await response.json();
+
+            this.allGeneratedContent = data.contents;
+            this.renderGeneratedContent(data.contents);
+        } catch (error) {
+            console.error('Failed to load generated content:', error);
+        }
+    }
+
+    renderGeneratedContent(contents) {
+        const container = document.getElementById('generated-content-list');
+
+        if (!contents || contents.length === 0) {
+            container.innerHTML = '<p style="color: #718096; text-align: center; padding: 40px;">No generated content yet</p>';
+            return;
+        }
+
+        let html = '';
+        for (const content of contents) {
+            const timestamp = new Date(content.timestamp).toLocaleString();
+            const badgeClass = content.content_type === 'presentation' ? 'presentation' : 'lab';
+            const icon = content.content_type === 'presentation' ? 'fa-file-powerpoint' : 'fa-flask';
+
+            html += `<div class="content-item" onclick="window.app.viewContentDetails('${content.id}')"><div class="content-item-info"><div class="content-item-title">${content.title}</div><div class="content-item-meta"><span class="content-item-badge ${badgeClass}"><i class="fas ${icon}"></i> ${content.content_type}</span><span><i class="fas fa-layer-group"></i> ${content.domain}</span><span><i class="fas fa-list"></i> ${content.feature_names.length} feature(s)</span><span><i class="fas fa-clock"></i> ${timestamp}</span></div></div><div class="content-item-actions"><button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); window.app.downloadContent('${content.id}')"><i class="fas fa-download"></i></button></div></div>`;
+        }
+
+        container.innerHTML = html;
+    }
+
+    filterGeneratedContent() {
+        const typeFilter = document.getElementById('content-type-filter').value;
+        const domainFilter = document.getElementById('content-domain-filter').value;
+
+        let filtered = this.allGeneratedContent || [];
+
+        if (typeFilter) {
+            filtered = filtered.filter(c => c.content_type === typeFilter);
+        }
+
+        if (domainFilter) {
+            filtered = filtered.filter(c => c.domain === domainFilter);
+        }
+
+        this.renderGeneratedContent(filtered);
+    }
+
+    async viewContentDetails(contentId) {
+        try {
+            const response = await fetch(`/api/generated-content/${contentId}`);
+            const content = await response.json();
+
+            const features = content.feature_names.join(', ');
+            alert(`Content: ${content.title}\nType: ${content.content_type}\nDomain: ${content.domain}\nFeatures: ${features}`);
+        } catch (error) {
+            console.error('Failed to load content details:', error);
+        }
+    }
+
+    async downloadContent(contentId) {
+        try {
+            const response = await fetch(`/api/generated-content/${contentId}/markdown`);
+            const data = await response.json();
+
+            // Create download link
+            const blob = new Blob([data.markdown], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const filename = data.title.toLowerCase().replace(/\s+/g, '-');
+            a.download = `${filename}.md`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Failed to download content:', error);
+        }
+    }
+
+    async loadLLMLogs() {
+        try {
+            const response = await fetch('/api/llm-usage/logs?size=20');
+            const data = await response.json();
+
+            this.renderLLMLogs(data.logs);
+        } catch (error) {
+            console.error('Failed to load LLM logs:', error);
+        }
+    }
+
+    renderLLMLogs(logs) {
+        const container = document.getElementById('llm-logs-list');
+
+        if (!logs || logs.length === 0) {
+            container.innerHTML = '<p style="color: #718096; text-align: center; padding: 40px;">No LLM activity yet</p>';
+            return;
+        }
+
+        let html = '';
+        for (const log of logs) {
+            const timestamp = new Date(log.timestamp).toLocaleString();
+            const statusClass = log.success ? 'success' : 'error';
+            const statusIcon = log.success ? 'fa-check-circle' : 'fa-exclamation-circle';
+            const tokenInfo = log.token_usage ? `<span><i class="fas fa-coins"></i> ${log.token_usage.total_tokens} tokens</span>` : '';
+            const costInfo = log.estimated_cost_usd ? `<span><i class="fas fa-dollar-sign"></i> $${log.estimated_cost_usd.toFixed(6)}</span>` : '';
+            const timeInfo = `${log.response_time_seconds.toFixed(2)}s`;
+
+            html += `<div class="log-item ${statusClass}"><div class="log-item-header"><span class="log-item-operation"><i class="fas ${statusIcon}"></i> ${log.operation_type}</span><span class="log-item-time">${timestamp}</span></div><div class="log-item-meta"><span><i class="fas fa-robot"></i> ${log.provider} / ${log.model}</span>${tokenInfo}${costInfo}<span><i class="fas fa-clock"></i> ${timeInfo}</span></div></div>`;
+        }
+
+        container.innerHTML = html;
+    }
 }
 
 // Global functions for onclick handlers
@@ -1600,3 +1776,213 @@ document.addEventListener('DOMContentLoaded', () => {
     // Make app globally accessible for onclick handlers
     window.app = app;
 });
+    // Analytics Functions
+    async loadAnalytics() {
+        try {
+            await Promise.all([
+                this.loadAnalyticsSummary(),
+                this.loadGeneratedContent(),
+                this.loadLLMLogs()
+            ]);
+        } catch (error) {
+            console.error('Failed to load analytics:', error);
+        }
+    }
+
+    async loadAnalyticsSummary() {
+        try {
+            const response = await fetch('/api/llm-usage/analytics');
+            const data = await response.json();
+            const analytics = data.analytics;
+
+            // Update summary cards
+            document.getElementById('total-llm-calls').textContent = analytics.total_calls || 0;
+            document.getElementById('total-cost').textContent = 
+                analytics.total_cost_usd ? `$${analytics.total_cost_usd.toFixed(6)}` : '$0.00';
+            document.getElementById('avg-response-time').textContent = 
+                analytics.avg_response_time_seconds ? `${analytics.avg_response_time_seconds.toFixed(2)}s` : '-';
+            document.getElementById('success-rate').textContent = 
+                analytics.success_rate ? `${(analytics.success_rate * 100).toFixed(1)}%` : '-';
+
+            // Render provider chart
+            this.renderChart('provider-chart', analytics.by_provider);
+            
+            // Render operation chart
+            this.renderChart('operation-chart', analytics.by_operation);
+        } catch (error) {
+            console.error('Failed to load analytics summary:', error);
+        }
+    }
+
+    renderChart(containerId, data) {
+        const container = document.getElementById(containerId);
+        if (!data || Object.keys(data).length === 0) {
+            container.innerHTML = '<p style="color: #718096; text-align: center; padding: 40px;">No data available</p>';
+            return;
+        }
+
+        // Find max value for scaling
+        const maxValue = Math.max(...Object.values(data));
+        
+        // Create bar chart
+        let html = '';
+        for (const [key, value] of Object.entries(data)) {
+            const percentage = (value / maxValue) * 100;
+            html += `
+                <div class="chart-bar">
+                    <div class="chart-label">${key}</div>
+                    <div class="chart-bar-visual" style="width: ${percentage}%"></div>
+                    <div class="chart-value">${value}</div>
+                </div>
+            `;
+        }
+        container.innerHTML = html;
+    }
+
+    async loadGeneratedContent() {
+        try {
+            const response = await fetch('/api/generated-content?size=20');
+            const data = await response.json();
+            
+            this.allGeneratedContent = data.contents;
+            this.renderGeneratedContent(data.contents);
+        } catch (error) {
+            console.error('Failed to load generated content:', error);
+        }
+    }
+
+    renderGeneratedContent(contents) {
+        const container = document.getElementById('generated-content-list');
+        
+        if (!contents || contents.length === 0) {
+            container.innerHTML = '<p style="color: #718096; text-align: center; padding: 40px;">No generated content yet</p>';
+            return;
+        }
+
+        let html = '';
+        for (const content of contents) {
+            const timestamp = new Date(content.timestamp).toLocaleString();
+            const badgeClass = content.content_type === 'presentation' ? 'presentation' : 'lab';
+            const icon = content.content_type === 'presentation' ? 'fa-file-powerpoint' : 'fa-flask';
+            
+            html += `
+                <div class="content-item" onclick="window.app.viewContentDetails('${content.id}')">
+                    <div class="content-item-info">
+                        <div class="content-item-title">${content.title}</div>
+                        <div class="content-item-meta">
+                            <span class="content-item-badge ${badgeClass}">
+                                <i class="fas ${icon}"></i>
+                                ${content.content_type}
+                            </span>
+                            <span><i class="fas fa-layer-group"></i> ${content.domain}</span>
+                            <span><i class="fas fa-list"></i> ${content.feature_names.length} feature(s)</span>
+                            <span><i class="fas fa-clock"></i> ${timestamp}</span>
+                        </div>
+                    </div>
+                    <div class="content-item-actions">
+                        <button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); window.app.downloadContent('${content.id}')">
+                            <i class="fas fa-download"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        container.innerHTML = html;
+    }
+
+    filterGeneratedContent() {
+        const typeFilter = document.getElementById('content-type-filter').value;
+        const domainFilter = document.getElementById('content-domain-filter').value;
+        
+        let filtered = this.allGeneratedContent || [];
+        
+        if (typeFilter) {
+            filtered = filtered.filter(c => c.content_type === typeFilter);
+        }
+        
+        if (domainFilter) {
+            filtered = filtered.filter(c => c.domain === domainFilter);
+        }
+        
+        this.renderGeneratedContent(filtered);
+    }
+
+    async viewContentDetails(contentId) {
+        try {
+            const response = await fetch(`/api/generated-content/${contentId}`);
+            const content = await response.json();
+            
+            // Create modal to show content details
+            alert(`Content: ${content.title}\nType: ${content.content_type}\nDomain: ${content.domain}\nFeatures: ${content.feature_names.join(', ')}`);
+        } catch (error) {
+            console.error('Failed to load content details:', error);
+        }
+    }
+
+    async downloadContent(contentId) {
+        try {
+            const response = await fetch(`/api/generated-content/${contentId}/markdown`);
+            const data = await response.json();
+            
+            // Create download link
+            const blob = new Blob([data.markdown], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${data.title.toLowerCase().replace(/\s+/g, '-')}.md`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Failed to download content:', error);
+        }
+    }
+
+    async loadLLMLogs() {
+        try {
+            const response = await fetch('/api/llm-usage/logs?size=20');
+            const data = await response.json();
+            
+            this.renderLLMLogs(data.logs);
+        } catch (error) {
+            console.error('Failed to load LLM logs:', error);
+        }
+    }
+
+    renderLLMLogs(logs) {
+        const container = document.getElementById('llm-logs-list');
+        
+        if (!logs || logs.length === 0) {
+            container.innerHTML = '<p style="color: #718096; text-align: center; padding: 40px;">No LLM activity yet</p>';
+            return;
+        }
+
+        let html = '';
+        for (const log of logs) {
+            const timestamp = new Date(log.timestamp).toLocaleString();
+            const statusClass = log.success ? 'success' : 'error';
+            const statusIcon = log.success ? 'fa-check-circle' : 'fa-exclamation-circle';
+            
+            html += `
+                <div class="log-item ${statusClass}">
+                    <div class="log-item-header">
+                        <span class="log-item-operation">
+                            <i class="fas ${statusIcon}"></i>
+                            ${log.operation_type}
+                        </span>
+                        <span class="log-item-time">${timestamp}</span>
+                    </div>
+                    <div class="log-item-meta">
+                        <span><i class="fas fa-robot"></i> ${log.provider} / ${log.model}</span>
+                        ${log.token_usage ? `<span><i class="fas fa-coins"></i> ${log.token_usage.total_tokens} tokens</span>` : ''}
+                        ${log.estimated_cost_usd ? `<span><i class="fas fa-dollar-sign"></i> $${log.estimated_cost_usd.toFixed(6)}</span>` : ''}
+                        <span><i class="fas fa-clock"></i> ${log.response_time_seconds.toFixed(2)}s</span>
+                    </div>
+                </div>
+            `;
+        }
+        
+        container.innerHTML = html;
+    }

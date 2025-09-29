@@ -42,17 +42,8 @@ from src.core.storytelling import StoryArcPlanner, TalkTrackGenerator, Narrative
 from src.integrations.customer_story_research import CustomerStoryResearcher, BusinessValueCalculator
 
 # Unified LLM client for multi-provider support (OpenAI, Gemini, Claude)
-try:
-    from src.integrations.unified_llm_client import UnifiedLLMClient
-    import os
-    # Initialize unified LLM client (auto-selects provider based on available API keys)
-    # Use model from environment or default based on provider
-    llm_model = os.getenv("LLM_MODEL")  # Override default model if needed
-    llm_client = UnifiedLLMClient(model=llm_model) if llm_model else UnifiedLLMClient()
-    print(f"LLM client initialized: {llm_client.get_provider_info()}")
-except Exception as e:
-    print(f"LLM client not available: {e}")
-    llm_client = None
+# Will be initialized later after dependencies are set up
+llm_client = None
 
 # Optional imports
 try:
@@ -111,6 +102,10 @@ content_research_service = ContentResearchService(
 # LLM presentation generator (Stage 2 of two-stage LLM architecture)
 llm_presentation_generator = LLMPresentationGenerator(llm_client) if llm_client else None
 
+# LLM usage tracking and content storage (initialized after app startup)
+llm_usage_storage = None
+generated_content_storage = None
+
 # Dependency for Elasticsearch (in production, configure with settings)
 def get_es_client():
     """Get Elasticsearch client for Serverless or local development."""
@@ -139,6 +134,77 @@ def get_feature_storage(es_client = Depends(get_es_client)):
     if es_client and ELASTICSEARCH_AVAILABLE:
         return FeatureStorage(es_client, index_name="elastic-whats-new-features")
     return None
+
+def get_llm_usage_storage(es_client = Depends(get_es_client)):
+    """Get LLMUsageStorage instance for tracking LLM usage."""
+    global llm_usage_storage
+    if llm_usage_storage is None and es_client and ELASTICSEARCH_AVAILABLE:
+        try:
+            from src.integrations.elasticsearch import LLMUsageStorage
+            llm_usage_storage = LLMUsageStorage(es_client)
+            logger.info("LLM usage storage initialized")
+        except Exception as e:
+            logger.warning(f"Could not initialize LLM usage storage: {e}")
+    return llm_usage_storage
+
+def get_generated_content_storage(es_client = Depends(get_es_client)):
+    """Get GeneratedContentStorage instance for storing generated presentations/labs."""
+    global generated_content_storage
+    if generated_content_storage is None and es_client and ELASTICSEARCH_AVAILABLE:
+        try:
+            from src.integrations.elasticsearch import GeneratedContentStorage
+            generated_content_storage = GeneratedContentStorage(es_client)
+            logger.info("Generated content storage initialized")
+        except Exception as e:
+            logger.warning(f"Could not initialize generated content storage: {e}")
+    return generated_content_storage
+
+
+# Application startup event
+@app.on_event("startup")
+async def startup_event():
+    """Initialize services on application startup."""
+    global llm_client, llm_usage_storage, generated_content_storage
+
+    # Initialize Elasticsearch-based storages
+    try:
+        es_client = get_es_client()
+        if es_client and ELASTICSEARCH_AVAILABLE:
+            # Initialize LLM usage storage
+            try:
+                from src.integrations.elasticsearch import LLMUsageStorage
+                llm_usage_storage = LLMUsageStorage(es_client)
+                logger.info("✓ LLM usage tracking enabled")
+            except Exception as e:
+                logger.warning(f"LLM usage tracking disabled: {e}")
+
+            # Initialize generated content storage
+            try:
+                from src.integrations.elasticsearch import GeneratedContentStorage
+                generated_content_storage = GeneratedContentStorage(es_client)
+                logger.info("✓ Generated content storage enabled")
+            except Exception as e:
+                logger.warning(f"Generated content storage disabled: {e}")
+    except Exception as e:
+        logger.warning(f"Elasticsearch not available: {e}")
+
+    # Initialize LLM client with usage tracking
+    try:
+        from src.integrations.unified_llm_client import UnifiedLLMClient
+        import os
+
+        llm_model = os.getenv("LLM_MODEL")
+        llm_client = UnifiedLLMClient(
+            model=llm_model if llm_model else None,
+            usage_storage=llm_usage_storage
+        )
+        logger.info(f"✓ LLM client initialized: {llm_client.get_provider_info()}")
+
+        # Re-initialize LLM presentation generator with tracking-enabled client
+        global llm_presentation_generator
+        llm_presentation_generator = LLMPresentationGenerator(llm_client)
+    except Exception as e:
+        logger.error(f"LLM client initialization failed: {e}")
 
 
 # Request/Response models
@@ -264,6 +330,7 @@ class LabMarkdownExportResponse(BaseModel):
     format_type: str
     character_count: int
     lab_count: int
+    content_id: Optional[str] = None  # ID of stored content in Elasticsearch
 
 
 class CustomerStoryRequest(BaseModel):
@@ -879,6 +946,60 @@ async def generate_complete_presentation(
             # No separate talk_tracks list in presentation_dict format
             pass
 
+        # Store generated presentation content if storage is available
+        if generated_content_storage:
+            try:
+                from src.core.models import GeneratedContent
+
+                # Convert presentation to markdown for storage
+                markdown_content = f"# {response_data['presentation']['title']}\n\n"
+                for slide in slides_data:
+                    markdown_content += f"## {slide['title']}\n\n"
+                    if slide.get('subtitle'):
+                        markdown_content += f"*{slide['subtitle']}*\n\n"
+                    markdown_content += f"{slide['content']}\n\n"
+                    if slide.get('business_value'):
+                        markdown_content += f"**Business Value:** {slide['business_value']}\n\n"
+                    if slide.get('speaker_notes'):
+                        markdown_content += f"**Speaker Notes:** {slide['speaker_notes']}\n\n"
+                    markdown_content += "---\n\n"
+
+                # Create GeneratedContent object
+                generated_content = GeneratedContent(
+                    content_type="presentation",
+                    title=response_data['presentation']['title'],
+                    domain=request.domain.value,
+                    feature_ids=[f.id for f in features],
+                    feature_names=[f.name for f in features],
+                    markdown_content=markdown_content,
+                    structured_data={
+                        "slides": slides_data,
+                        "story_arc": response_data.get("story_arc"),
+                        "customer_stories": response_data.get("customer_stories"),
+                        "featured_themes": featured_themes
+                    },
+                    generation_params={
+                        "audience": request.audience,
+                        "quarter": request.quarter,
+                        "storytelling_enabled": request.storytelling_enabled,
+                        "narrative_style": request.narrative_style if request.storytelling_enabled else None,
+                        "technical_depth": request.technical_depth,
+                        "include_customer_stories": request.include_customer_stories if request.storytelling_enabled else False
+                    },
+                    tags=[request.domain.value, request.quarter, "presentation", request.audience]
+                )
+
+                # Store in Elasticsearch
+                stored_result = generated_content_storage.store(generated_content)
+                logger.info(f"Stored presentation content with ID: {generated_content.id}")
+
+                # Add content ID to response
+                response_data["content_id"] = generated_content.id
+
+            except Exception as e:
+                logger.warning(f"Failed to store presentation content: {e}")
+                # Don't fail the request if storage fails
+
         return response_data
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Presentation generation failed: {e}")
@@ -941,7 +1062,7 @@ async def generate_unified_presentation(
         for feature in features:
             domain_counts[feature.domain.value] = domain_counts.get(feature.domain.value, 0) + 1
 
-        return {
+        response_data = {
             "presentation": {
                 "id": presentation.id,
                 "title": presentation.title,
@@ -963,6 +1084,59 @@ async def generate_unified_presentation(
                 "is_truly_unified": len([d for d in domain_counts.keys() if d != "all_domains"]) >= 3
             }
         }
+
+        # Store generated unified presentation content if storage is available
+        if generated_content_storage:
+            try:
+                from src.core.models import GeneratedContent
+
+                # Convert presentation to markdown for storage
+                markdown_content = f"# {presentation.title}\n\n"
+                for slide in presentation.slides:
+                    markdown_content += f"## {slide.title}\n\n"
+                    if slide.subtitle:
+                        markdown_content += f"*{slide.subtitle}*\n\n"
+                    markdown_content += f"{slide.content}\n\n"
+                    if slide.business_value:
+                        markdown_content += f"**Business Value:** {slide.business_value}\n\n"
+                    if slide.speaker_notes:
+                        markdown_content += f"**Speaker Notes:** {slide.speaker_notes}\n\n"
+                    markdown_content += "---\n\n"
+
+                # Create GeneratedContent object
+                generated_content = GeneratedContent(
+                    content_type="presentation",
+                    title=presentation.title,
+                    domain=presentation.domain.value,
+                    feature_ids=[f.id for f in features],
+                    feature_names=[f.name for f in features],
+                    markdown_content=markdown_content,
+                    structured_data={
+                        "slides": slides_data,
+                        "featured_themes": [theme.value for theme in presentation.featured_themes],
+                        "domain_distribution": domain_counts
+                    },
+                    generation_params={
+                        "audience": request.audience,
+                        "quarter": request.quarter,
+                        "story_theme": request.story_theme,
+                        "unified": True
+                    },
+                    tags=["unified", "all_domains", request.quarter, "presentation", request.audience]
+                )
+
+                # Store in Elasticsearch
+                stored_result = generated_content_storage.store(generated_content)
+                logger.info(f"Stored unified presentation content with ID: {generated_content.id}")
+
+                # Add content ID to response
+                response_data["content_id"] = generated_content.id
+
+            except Exception as e:
+                logger.warning(f"Failed to store unified presentation content: {e}")
+                # Don't fail the request if storage fails
+
+        return response_data
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Unified presentation generation failed: {e}")
 
@@ -1273,6 +1447,59 @@ async def export_lab_markdown(
             if not filename.endswith('.md'):
                 filename += '.md'
 
+        # Store generated lab content if storage is available (for multi-lab exports)
+        content_id = None
+        if generated_content_storage and len(lab_instructions) > 0:
+            try:
+                from src.core.models import GeneratedContent
+
+                # For multi-lab exports, store as a collection
+                lab_title = request.track_title if len(lab_instructions) > 1 else lab_instructions[0].title
+
+                # Create GeneratedContent object
+                generated_content = GeneratedContent(
+                    content_type="lab",
+                    title=lab_title,
+                    domain=features[0].domain.value if features else "all_domains",
+                    feature_ids=[f.id for f in features],
+                    feature_names=[f.name for f in features],
+                    markdown_content=markdown_content,
+                    structured_data={
+                        "labs": [
+                            {
+                                "title": lab.title,
+                                "story_context": lab.story_context,
+                                "objective": lab.objective,
+                                "scenario": lab.scenario,
+                                "dataset_tables": [t.dict() for t in lab.dataset_tables] if lab.dataset_tables else [],
+                                "setup_commands": lab.setup_commands,
+                                "challenges": [c.dict() for c in lab.challenges] if lab.challenges else [],
+                                "estimated_time_minutes": lab.estimated_time_minutes,
+                                "difficulty": lab.difficulty
+                            }
+                            for lab in lab_instructions
+                        ],
+                        "lab_count": len(lab_instructions)
+                    },
+                    generation_params={
+                        "scenario_type": getattr(request, 'scenario_type', 'auto'),
+                        "data_size": getattr(request, 'data_size', 'demo'),
+                        "technical_depth": getattr(request, 'technical_depth', 'medium'),
+                        "format_type": request.format_type,
+                        "track_title": request.track_title if len(lab_instructions) > 1 else None
+                    },
+                    tags=["lab", "multi-lab" if len(lab_instructions) > 1 else "single-lab"]
+                )
+
+                # Store in Elasticsearch
+                stored_result = generated_content_storage.store(generated_content)
+                logger.info(f"Stored multi-lab content with ID: {generated_content.id}")
+                content_id = generated_content.id
+
+            except Exception as e:
+                logger.warning(f"Failed to store multi-lab content: {e}")
+                # Don't fail the request if storage fails
+
         # Handle export format
         if request.export_format == "file":
             # Save file for download
@@ -1284,22 +1511,28 @@ async def export_lab_markdown(
 
             download_url = f"/downloads/{filename}"
 
-            return LabMarkdownExportResponse(
+            response = LabMarkdownExportResponse(
                 download_url=download_url,
                 filename=filename,
                 format_type=request.format_type,
                 character_count=len(markdown_content),
                 lab_count=len(lab_instructions)
             )
+            if content_id:
+                response.content_id = content_id
+            return response
         else:
             # Inline export
-            return LabMarkdownExportResponse(
+            response = LabMarkdownExportResponse(
                 content=markdown_content,
                 filename=filename,
                 format_type=request.format_type,
                 character_count=len(markdown_content),
                 lab_count=len(lab_instructions)
             )
+            if content_id:
+                response.content_id = content_id
+            return response
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lab markdown export failed: {e}")
@@ -1421,6 +1654,48 @@ async def export_single_lab_markdown(
             if not filename.endswith('.md'):
                 filename += '.md'
 
+        # Store generated lab content if storage is available
+        content_id = None
+        if generated_content_storage:
+            try:
+                from src.core.models import GeneratedContent
+
+                # Create GeneratedContent object
+                generated_content = GeneratedContent(
+                    content_type="lab",
+                    title=lab_instruction.title,
+                    domain=feature.domain.value,
+                    feature_ids=[feature.id],
+                    feature_names=[feature.name],
+                    markdown_content=markdown_content,
+                    structured_data={
+                        "story_context": lab_instruction.story_context,
+                        "objective": lab_instruction.objective,
+                        "scenario": lab_instruction.scenario,
+                        "dataset_tables": [t.dict() for t in lab_instruction.dataset_tables] if lab_instruction.dataset_tables else [],
+                        "setup_commands": lab_instruction.setup_commands,
+                        "challenges": [c.dict() for c in lab_instruction.challenges] if lab_instruction.challenges else [],
+                        "estimated_time_minutes": lab_instruction.estimated_time_minutes,
+                        "difficulty": lab_instruction.difficulty
+                    },
+                    generation_params={
+                        "scenario_type": getattr(request, 'scenario_type', 'auto'),
+                        "data_size": getattr(request, 'data_size', 'demo'),
+                        "technical_depth": getattr(request, 'technical_depth', 'medium'),
+                        "format_type": request.format_type
+                    },
+                    tags=["lab", feature.domain.value, feature.name.lower(), lab_instruction.difficulty]
+                )
+
+                # Store in Elasticsearch
+                stored_result = generated_content_storage.store(generated_content)
+                logger.info(f"Stored lab content with ID: {generated_content.id}")
+                content_id = generated_content.id
+
+            except Exception as e:
+                logger.warning(f"Failed to store lab content: {e}")
+                # Don't fail the request if storage fails
+
         # Handle export format
         if request.export_format == "file":
             # Save file for download
@@ -1432,22 +1707,28 @@ async def export_single_lab_markdown(
 
             download_url = f"/downloads/{filename}"
 
-            return LabMarkdownExportResponse(
+            response = LabMarkdownExportResponse(
                 download_url=download_url,
                 filename=filename,
                 format_type=request.format_type,
                 character_count=len(markdown_content),
                 lab_count=1
             )
+            if content_id:
+                response.content_id = content_id
+            return response
         else:
             # Inline export
-            return LabMarkdownExportResponse(
+            response = LabMarkdownExportResponse(
                 content=markdown_content,
                 filename=filename,
                 format_type=request.format_type,
                 character_count=len(markdown_content),
                 lab_count=1
             )
+            if content_id:
+                response.content_id = content_id
+            return response
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Single lab markdown export failed: {e}")
@@ -2125,6 +2406,220 @@ async def get_prompts_config():
     except Exception as e:
         logger.error(f"Failed to load prompts config: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to load prompts configuration: {e}")
+
+
+# ============================================================================
+# LLM Usage Tracking and Generated Content Query Endpoints
+# ============================================================================
+
+@app.get("/api/llm-usage/logs")
+async def get_llm_usage_logs(
+    operation_type: Optional[str] = None,
+    provider: Optional[str] = None,
+    success_only: bool = False,
+    size: int = 50,
+    llm_storage = Depends(get_llm_usage_storage)
+):
+    """Query LLM usage logs with optional filtering."""
+    if not llm_storage:
+        raise HTTPException(status_code=503, detail="LLM usage tracking not available")
+
+    try:
+        if operation_type:
+            logs = llm_storage.search_by_operation(operation_type, size=size)
+        elif provider:
+            logs = llm_storage.search_by_provider(provider, size=size)
+        else:
+            # Get recent logs
+            from datetime import datetime, timedelta, timezone
+            start_date = datetime.now(timezone.utc) - timedelta(days=7)
+            logs = llm_storage.get_recent_logs(start_date=start_date, size=size)
+
+        # Filter by success if requested
+        if success_only:
+            logs = [log for log in logs if log.get('success', False)]
+
+        return {
+            "logs": logs,
+            "count": len(logs),
+            "filters": {
+                "operation_type": operation_type,
+                "provider": provider,
+                "success_only": success_only
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to retrieve LLM usage logs: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve LLM usage logs: {e}")
+
+
+@app.get("/api/llm-usage/analytics")
+async def get_llm_usage_analytics(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    llm_storage = Depends(get_llm_usage_storage)
+):
+    """Get aggregated LLM usage analytics."""
+    if not llm_storage:
+        raise HTTPException(status_code=503, detail="LLM usage tracking not available")
+
+    try:
+        from datetime import datetime, timezone
+
+        # Parse dates if provided
+        parsed_start = None
+        parsed_end = None
+        if start_date:
+            parsed_start = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+        if end_date:
+            parsed_end = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+
+        analytics = llm_storage.get_usage_analytics(
+            start_date=parsed_start,
+            end_date=parsed_end
+        )
+
+        return {
+            "analytics": analytics,
+            "period": {
+                "start_date": start_date or "all_time",
+                "end_date": end_date or "now"
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to retrieve LLM usage analytics: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve LLM usage analytics: {e}")
+
+
+@app.get("/api/llm-usage/{log_id}")
+async def get_llm_usage_log(
+    log_id: str,
+    llm_storage = Depends(get_llm_usage_storage)
+):
+    """Get a specific LLM usage log by ID."""
+    if not llm_storage:
+        raise HTTPException(status_code=503, detail="LLM usage tracking not available")
+
+    try:
+        log = llm_storage.get_by_id(log_id)
+        if not log:
+            raise HTTPException(status_code=404, detail="LLM usage log not found")
+
+        return log
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to retrieve LLM usage log: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve LLM usage log: {e}")
+
+
+@app.get("/api/generated-content")
+async def get_generated_content(
+    content_type: Optional[str] = None,
+    domain: Optional[str] = None,
+    feature_ids: Optional[str] = None,
+    tags: Optional[str] = None,
+    size: int = 50,
+    content_storage = Depends(get_generated_content_storage)
+):
+    """Query generated content (presentations and labs) with optional filtering."""
+    if not content_storage:
+        raise HTTPException(status_code=503, detail="Generated content storage not available")
+
+    try:
+        # Parse comma-separated values
+        feature_id_list = feature_ids.split(',') if feature_ids else None
+        tag_list = tags.split(',') if tags else None
+
+        # Query based on filters
+        if content_type:
+            contents = content_storage.search_by_type(content_type, size=size)
+        elif feature_id_list:
+            contents = content_storage.search_by_features(feature_id_list, size=size)
+        elif domain:
+            contents = content_storage.search_by_domain(domain, size=size)
+        elif tag_list:
+            contents = content_storage.search_by_tags(tag_list, size=size)
+        else:
+            # Get recent content
+            contents = content_storage.get_recent_content(size=size)
+
+        return {
+            "contents": contents,
+            "count": len(contents),
+            "filters": {
+                "content_type": content_type,
+                "domain": domain,
+                "feature_ids": feature_id_list,
+                "tags": tag_list
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to retrieve generated content: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve generated content: {e}")
+
+
+@app.get("/api/generated-content/{content_id}")
+async def get_generated_content_by_id(
+    content_id: str,
+    include_markdown: bool = True,
+    content_storage = Depends(get_generated_content_storage)
+):
+    """Get a specific generated content by ID."""
+    if not content_storage:
+        raise HTTPException(status_code=503, detail="Generated content storage not available")
+
+    try:
+        content = content_storage.get_by_id(content_id)
+        if not content:
+            raise HTTPException(status_code=404, detail="Generated content not found")
+
+        # Optionally exclude large markdown content from response
+        if not include_markdown:
+            content.pop('markdown_content', None)
+
+        return content
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to retrieve generated content: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve generated content: {e}")
+
+
+@app.get("/api/generated-content/{content_id}/markdown")
+async def get_generated_content_markdown(
+    content_id: str,
+    content_storage = Depends(get_generated_content_storage)
+):
+    """Get the markdown content of a generated item."""
+    if not content_storage:
+        raise HTTPException(status_code=503, detail="Generated content storage not available")
+
+    try:
+        content = content_storage.get_by_id(content_id)
+        if not content:
+            raise HTTPException(status_code=404, detail="Generated content not found")
+
+        markdown_content = content.get('markdown_content', '')
+        title = content.get('title', 'Untitled')
+
+        return {
+            "content_id": content_id,
+            "title": title,
+            "markdown": markdown_content,
+            "character_count": len(markdown_content)
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to retrieve generated content markdown: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve generated content markdown: {e}")
 
 
 # Development server runner
