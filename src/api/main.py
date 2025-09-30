@@ -314,11 +314,15 @@ class MarkdownExportResponse(BaseModel):
     character_count: int
 
 class LabMarkdownExportRequest(BaseModel):
-    feature_ids: List[str]
+    """Request model for single-feature lab generation.
+
+    Note: Multi-feature labs are not supported. feature_ids should contain exactly one feature ID.
+    """
+    feature_ids: List[str]  # Should contain exactly one feature ID
     track_title: str = "Elastic Workshop"
     format_type: str = "standard"  # "standard", "github", "instruqt"
     include_metadata: bool = True
-    export_format: str = "inline"  # "inline", "file", "multiple"
+    export_format: str = "inline"  # "inline", "file"
     filename: Optional[str] = None
     # Storytelling features for enhanced lab experience
     narrative_style: str = "customer_journey"
@@ -1417,44 +1421,39 @@ async def export_lab_markdown(
             data_size = getattr(request, 'data_size', 'demo')
             technical_depth = getattr(request, 'technical_depth', 'medium')
 
-            # For now, generate separate labs for each feature
-            # TODO: Re-enable multi-feature unified labs after testing
+            # Only support single feature labs
             if len(features) > 1:
-                logger.warning(f"Multi-feature labs not yet supported, generating separate labs for {len(features)} features")
-                lab_instructions = []
-                for feature in features:
-                    try:
-                        lab_instruction = content_generator.generate_lab_instructions(feature)
-                        lab_instructions.append(lab_instruction)
-                    except:
-                        pass
-            else:
-                # Single feature - LLM generation
-                lab_data = llm_client.generate_lab(
-                    features=features,
-                    domain=features[0].domain.value,
-                    scenario_type=scenario_type,
-                    data_size=data_size,
-                    technical_depth=technical_depth
+                raise HTTPException(
+                    status_code=400,
+                    detail="Multi-feature labs are not supported. Please select only one feature."
                 )
 
-                lab_instruction = LabInstruction(
-                    title=lab_data.get('title', f"Hands-on Lab: {features[0].name}"),
-                    story_context=lab_data.get('story_context', ""),
-                    objective=lab_data.get('objective', ""),
-                    scenario=lab_data.get('scenario', lab_data.get('story_context', '')),
-                    feature_ids=[features[0].id],
-                    dataset_tables=[DatasetTable(**t) for t in lab_data.get('dataset_tables', [])],
-                    setup_commands=lab_data.get('setup_commands', []),
-                    challenges=[LabChallenge(**c) for c in lab_data.get('challenges', [])],
-                    setup_instructions=lab_data.get('setup_instructions', ''),
-                    steps=lab_data.get('steps', []),
-                    validation=lab_data.get('validation', ''),
-                    estimated_time=lab_data.get('estimated_time_minutes', 45),
-                    estimated_time_minutes=lab_data.get('estimated_time_minutes', 45),
-                    difficulty=lab_data.get('difficulty', 'intermediate')
-                )
-                lab_instructions = [lab_instruction]
+            # Single feature - LLM generation
+            lab_data = llm_client.generate_lab(
+                features=features,
+                domain=features[0].domain.value,
+                scenario_type=scenario_type,
+                data_size=data_size,
+                technical_depth=technical_depth
+            )
+
+            lab_instruction = LabInstruction(
+                title=lab_data.get('title', f"Hands-on Lab: {features[0].name}"),
+                story_context=lab_data.get('story_context', ""),
+                objective=lab_data.get('objective', ""),
+                scenario=lab_data.get('scenario', lab_data.get('story_context', '')),
+                feature_ids=[features[0].id],
+                dataset_tables=[DatasetTable(**t) for t in lab_data.get('dataset_tables', [])],
+                setup_commands=lab_data.get('setup_commands', []),
+                challenges=[LabChallenge(**c) for c in lab_data.get('challenges', [])],
+                setup_instructions=lab_data.get('setup_instructions', ''),
+                steps=lab_data.get('steps', []),
+                validation=lab_data.get('validation', ''),
+                estimated_time=lab_data.get('estimated_time_minutes', 45),
+                estimated_time_minutes=lab_data.get('estimated_time_minutes', 45),
+                difficulty=lab_data.get('difficulty', 'intermediate')
+            )
+            lab_instructions = [lab_instruction]
 
         except Exception as e:
             logger.error(f"LLM lab generation failed: {e}, using fallback")
@@ -1467,24 +1466,13 @@ async def export_lab_markdown(
                 except:
                     pass
 
-        # Export to markdown
-        if len(lab_instructions) == 1:
-            # Single lab export
-            markdown_content = instruqt_exporter.export_lab_to_markdown(
-                lab_instructions[0],
-                format_type=request.format_type,
-                include_metadata=request.include_metadata
-            )
-            filename = f"{features[0].name.lower().replace(' ', '-')}-lab-{request.format_type}.md"
-        else:
-            # Multiple labs export
-            markdown_content = instruqt_exporter.export_multiple_labs_to_markdown(
-                lab_instructions,
-                track_title=request.track_title,
-                format_type=request.format_type,
-                include_metadata=request.include_metadata
-            )
-            filename = f"{request.track_title.lower().replace(' ', '-')}-{request.format_type}.md"
+        # Export to markdown (always single lab)
+        markdown_content = instruqt_exporter.export_lab_to_markdown(
+            lab_instructions[0],
+            format_type=request.format_type,
+            include_metadata=request.include_metadata
+        )
+        filename = f"{features[0].name.lower().replace(' ', '-')}-lab-{request.format_type}.md"
 
         # Override filename if provided
         if request.filename:
@@ -1492,57 +1480,49 @@ async def export_lab_markdown(
             if not filename.endswith('.md'):
                 filename += '.md'
 
-        # Store generated lab content if storage is available (for multi-lab exports)
+        # Store generated lab content if storage is available
         content_id = None
         if generated_content_storage and len(lab_instructions) > 0:
             try:
                 from src.core.models import GeneratedContent
 
-                # For multi-lab exports, store as a collection
-                lab_title = request.track_title if len(lab_instructions) > 1 else lab_instructions[0].title
+                lab = lab_instructions[0]
 
                 # Create GeneratedContent object
                 generated_content = GeneratedContent(
                     content_type="lab",
-                    title=lab_title,
-                    domain=features[0].domain.value if features else "all_domains",
-                    feature_ids=[f.id for f in features],
-                    feature_names=[f.name for f in features],
+                    title=lab.title,
+                    domain=features[0].domain.value,
+                    feature_ids=[features[0].id],
+                    feature_names=[features[0].name],
                     markdown_content=markdown_content,
                     structured_data={
-                        "labs": [
-                            {
-                                "title": lab.title,
-                                "story_context": lab.story_context,
-                                "objective": lab.objective,
-                                "scenario": lab.scenario,
-                                "dataset_tables": [t.dict() for t in lab.dataset_tables] if lab.dataset_tables else [],
-                                "setup_commands": lab.setup_commands,
-                                "challenges": [c.dict() for c in lab.challenges] if lab.challenges else [],
-                                "estimated_time_minutes": lab.estimated_time_minutes,
-                                "difficulty": lab.difficulty
-                            }
-                            for lab in lab_instructions
-                        ],
-                        "lab_count": len(lab_instructions)
+                        "title": lab.title,
+                        "story_context": lab.story_context,
+                        "objective": lab.objective,
+                        "scenario": lab.scenario,
+                        "dataset_tables": [t.dict() for t in lab.dataset_tables] if lab.dataset_tables else [],
+                        "setup_commands": lab.setup_commands,
+                        "challenges": [c.dict() for c in lab.challenges] if lab.challenges else [],
+                        "estimated_time_minutes": lab.estimated_time_minutes,
+                        "difficulty": lab.difficulty
                     },
                     generation_params={
                         "scenario_type": getattr(request, 'scenario_type', 'auto'),
                         "data_size": getattr(request, 'data_size', 'demo'),
                         "technical_depth": getattr(request, 'technical_depth', 'medium'),
-                        "format_type": request.format_type,
-                        "track_title": request.track_title if len(lab_instructions) > 1 else None
+                        "format_type": request.format_type
                     },
-                    tags=["lab", "multi-lab" if len(lab_instructions) > 1 else "single-lab"]
+                    tags=["lab", "single-lab"]
                 )
 
                 # Store in Elasticsearch
                 stored_result = generated_content_storage.store(generated_content)
-                logger.info(f"Stored multi-lab content with ID: {generated_content.id}")
+                logger.info(f"Stored lab content with ID: {generated_content.id}")
                 content_id = generated_content.id
 
             except Exception as e:
-                logger.warning(f"Failed to store multi-lab content: {e}")
+                logger.warning(f"Failed to store lab content: {e}")
                 # Don't fail the request if storage fails
 
         # Handle export format
@@ -1561,7 +1541,7 @@ async def export_lab_markdown(
                 filename=filename,
                 format_type=request.format_type,
                 character_count=len(markdown_content),
-                lab_count=len(lab_instructions)
+                lab_count=1  # Always single lab
             )
             if content_id:
                 response.content_id = content_id
@@ -1573,7 +1553,7 @@ async def export_lab_markdown(
                 filename=filename,
                 format_type=request.format_type,
                 character_count=len(markdown_content),
-                lab_count=len(lab_instructions)
+                lab_count=1  # Always single lab
             )
             if content_id:
                 response.content_id = content_id

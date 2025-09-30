@@ -796,9 +796,13 @@ class ElasticGenerator {
         container.dataset.allFeatures = JSON.stringify(features);
 
         // Render as list, preserving checked state
+        // For lab features, use radio buttons (single selection only)
+        const inputType = containerId === 'lab-features' ? 'radio' : 'checkbox';
+        const inputName = containerId === 'lab-features' ? 'selected-lab-feature' : 'selected-features';
+
         container.innerHTML = features.map(feature => `
             <div class="feature-list-item" data-feature-id="${feature.id}">
-                <input type="checkbox" value="${feature.id}" name="selected-features" ${checkedFeatures.has(feature.id) ? 'checked' : ''}>
+                <input type="${inputType}" value="${feature.id}" name="${inputName}" ${checkedFeatures.has(feature.id) ? 'checked' : ''}>
                 <div class="feature-list-item-content">
                     <div class="feature-list-item-name">${feature.name}</div>
                     <div class="feature-list-item-meta">
@@ -865,9 +869,13 @@ class ElasticGenerator {
         });
 
         // Re-render filtered/sorted list
+        // For lab features, use radio buttons (single selection only)
+        const inputType = containerId === 'lab-features' ? 'radio' : 'checkbox';
+        const inputName = containerId === 'lab-features' ? 'selected-lab-feature' : 'selected-features';
+
         container.innerHTML = features.map(feature => `
             <div class="feature-list-item" data-feature-id="${feature.id}">
-                <input type="checkbox" value="${feature.id}" name="selected-features">
+                <input type="${inputType}" value="${feature.id}" name="${inputName}">
                 <div class="feature-list-item-content">
                     <div class="feature-list-item-name">${feature.name}</div>
                     <div class="feature-list-item-meta">
@@ -1300,19 +1308,18 @@ class ElasticGenerator {
 
     // Lab Generation
     async generateLabs() {
-        const selectedFeatures = Array.from(document.querySelectorAll('#lab-features input:checked'))
-            .map(cb => cb.value);
+        // Get selected feature (radio button - single selection only)
+        const selectedFeature = document.querySelector('#lab-features input[name="selected-lab-feature"]:checked');
 
-        // Handle feature selection for lab generation
-        if (selectedFeatures.length === 0) {
-            this.showToast('Please select at least one feature for lab generation', 'warning');
+        if (!selectedFeature) {
+            this.showToast('Please select a feature for lab generation', 'warning');
             return;
         }
 
-        const featureIds = selectedFeatures;
+        const featureId = selectedFeature.value;
 
         const requestData = {
-            feature_ids: featureIds,
+            feature_ids: [featureId],  // Always array with single feature
             track_title: document.getElementById('workshop-title').value,
             format_type: document.getElementById('lab-format').value,
             include_metadata: document.getElementById('include-metadata').checked,
@@ -1328,12 +1335,10 @@ class ElasticGenerator {
         };
 
         try {
-            this.showToast('Generating labs...', 'info');
+            this.showToast('Generating lab...', 'info');
 
-            const endpoint = featureIds.length === 1 ?
-                '/labs/markdown/single' : '/labs/markdown/export';
-
-            const response = await fetch(`${this.apiBase}${endpoint}`, {
+            // Always use single lab endpoint
+            const response = await fetch(`${this.apiBase}/labs/markdown/single`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1344,7 +1349,7 @@ class ElasticGenerator {
             if (response.ok) {
                 this.currentLabs = await response.json();
                 this.displayLabPreview();
-                this.showToast('Labs generated successfully!', 'success');
+                this.showToast('Lab generated successfully!', 'success');
             } else {
                 const errorText = await response.text();
                 console.error(`Lab generation failed:`, {
@@ -1354,11 +1359,11 @@ class ElasticGenerator {
                     body: errorText,
                     requestData: requestData
                 });
-                throw new Error(`Failed to generate labs: ${response.status} ${response.statusText}`);
+                throw new Error(`Failed to generate lab: ${response.status} ${response.statusText}`);
             }
         } catch (error) {
-            console.error('Error generating labs:', error);
-            this.showToast(`Error generating labs: ${error.message}`, 'error');
+            console.error('Error generating lab:', error);
+            this.showToast(`Error generating lab: ${error.message}`, 'error');
         }
     }
 
@@ -1400,11 +1405,15 @@ class ElasticGenerator {
             `);
         } else {
             // Download as file
-            const selectedFeatures = Array.from(document.querySelectorAll('#lab-features input:checked'))
-                .map(cb => cb.value);
+            const selectedFeature = document.querySelector('#lab-features input[name="selected-lab-feature"]:checked');
+
+            if (!selectedFeature) {
+                this.showToast('No feature selected', 'warning');
+                return;
+            }
 
             const requestData = {
-                feature_ids: selectedFeatures,
+                feature_ids: [selectedFeature.value],  // Always array with single feature
                 track_title: document.getElementById('workshop-title').value,
                 format_type: document.getElementById('lab-format').value,
                 include_metadata: document.getElementById('include-metadata').checked,
@@ -1415,10 +1424,8 @@ class ElasticGenerator {
             };
 
             try {
-                const endpoint = selectedFeatures.length === 1 ?
-                    '/labs/markdown/single' : '/labs/markdown/export';
-
-                const response = await fetch(`${this.apiBase}${endpoint}`, {
+                // Always use single lab endpoint
+                const response = await fetch(`${this.apiBase}/labs/markdown/single`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
