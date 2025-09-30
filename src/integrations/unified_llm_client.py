@@ -620,6 +620,41 @@ Classify each feature into one of the three themes and create a cohesive story."
                 details += f"\nBenefits: {', '.join(feature.benefits[:3])}"
             if feature.documentation_links:
                 details += f"\nDocs: {feature.documentation_links[0]}"
+
+            # ENHANCEMENT: Add extracted content if available
+            if hasattr(feature, 'content_research') and feature.content_research:
+                cr = feature.content_research
+                ec = cr.extracted_content if hasattr(cr, 'extracted_content') else None
+
+                if ec:
+                    # Add use cases
+                    if hasattr(ec, 'use_cases') and ec.use_cases:
+                        details += f"\n\nUse Cases:"
+                        for uc in ec.use_cases[:3]:
+                            details += f"\n  - {uc}"
+
+                    # Add key capabilities
+                    if hasattr(ec, 'key_capabilities') and ec.key_capabilities:
+                        details += f"\n\nKey Capabilities:"
+                        for cap in ec.key_capabilities[:5]:
+                            details += f"\n  - {cap}"
+
+                    # Add technical requirements
+                    if hasattr(ec, 'technical_requirements') and ec.technical_requirements:
+                        details += f"\n\nTechnical Requirements:"
+                        for req in ec.technical_requirements[:3]:
+                            details += f"\n  - {req}"
+
+                    # Add code examples
+                    if hasattr(ec, 'code_examples') and ec.code_examples:
+                        details += f"\n\nCode Examples:"
+                        for ce in ec.code_examples[:2]:
+                            if hasattr(ce, 'code') and ce.code:
+                                desc = getattr(ce, 'description', 'Example')
+                                details += f"\n  {desc}:\n  {ce.code[:200]}"
+
+                logger.info(f"Enhanced context for {feature.name} with extracted content")
+
             feature_details_parts.append(details)
 
         feature_details = "\n".join(feature_details_parts)
