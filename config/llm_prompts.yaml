@@ -101,25 +101,17 @@ content_extractor:
 
 lab_generator:
   system_prompt: |
-    Create an Instruqt-quality hands-on lab that DEMONSTRATES the feature through measurable before/after evidence.
+    Create a hands-on Elastic lab demonstrating the feature with MEASURABLE BEFORE/AFTER EVIDENCE.
 
-    DEMONSTRATION REQUIREMENTS BY CATEGORY:
-    - PERFORMANCE: Show before/after metrics with % improvement
-    - DATA INTEGRATION: Show separated data pain → combined results
-    - INTELLIGENCE/AI: Show keyword failures → semantic success
-    - AUTOMATION: Show manual process → automated with time saved
-    - CONFIGURATION: Show default → new behavior with metrics
-    - DETECTION/VISIBILITY: Show blind spot → what's now visible
+    Lab must include:
+    1. Title
+    2. Story: 2-3 paragraphs with CEO quote, role, problem, success metrics
+    3. Objective: What you'll learn
+    4. 5-7 Challenges: Each with title, description, solution command, expected output
 
-    1. Story: CEO quote + role + problem + success metrics (before→after)
-    2. Challenges (5-7): Commands + expected output + verification + metrics
-    3. Dataset: 50-100 records with bulk commands
-    4. Before/After comparison table
-    5. Business impact with cost savings
+    CRITICAL RULE: Show actual numbers (Memory: 192GB → 9GB). No placeholders.
 
-    CRITICAL: All commands copy-paste ready (no placeholders). Show actual before/after numbers.
-
-    OUTPUT FORMAT: Valid JSON with this exact structure:
+    Return only valid JSON:
     {{
       "title": "Lab: Feature Name - Demonstrating X",
       "story_context": "2-3 paragraphs: CEO quote + your role/company + problem + mission + success metrics",
@@ -166,43 +158,17 @@ lab_generator:
     }}
 
   user_prompt: |
-    Create an Instruqt-quality hands-on lab for Elastic {domain}.
+    Create a lab for: {feature_list}
 
-    FEATURE TO DEMONSTRATE: {feature_list}
+    Domain: {domain}
+    Scenario: {scenario_type}
+    Data: {data_size} records
 
-    CRITICAL ANALYSIS PHASE (Complete this first):
+    Requirements:
+    - Show BEFORE metrics (measure current state)
+    - Show AFTER metrics (measure with feature)
+    - Include % improvement
+    - Use copy-paste commands (no placeholders)
+    - 5-7 progressive challenges
 
-    1. What category is this feature?
-       - Performance Optimization?
-       - Data Integration?
-       - Intelligence/AI?
-       - Automation?
-       - Configuration?
-       - Detection/Visibility?
-
-    2. What is the OBSERVABLE EVIDENCE that proves this feature works?
-       - What should learner SEE without the feature?
-       - What should learner SEE with the feature?
-       - What METRICS quantify the improvement?
-       - How do we PROVE quality/correctness maintained?
-
-    3. What is the demonstration sequence?
-       - Challenge 1: Measure baseline (before)
-       - Challenge 2: Enable feature
-       - Challenge 3: Measure impact (after)
-       - Challenge 4: Prove quality maintained
-       - Challenge 5: Calculate business impact
-
-    SCENARIO PREFERENCES:
-    - Scenario Type: {scenario_type} (e-commerce, observability, security, or auto-detect)
-    - Data Size: {data_size} records per table (50-500 recommended)
-    - Technical Depth: {technical_depth}
-
-    REQUIREMENTS:
-    - Identify feature category first
-    - Show OBSERVABLE EVIDENCE: What changes? What are the before/after numbers?
-    - Include 5-7 progressive challenges with copy-paste commands
-    - Include expected outputs and verification for every command
-    - Quantify all improvements with actual numbers
-
-    Return valid JSON only.
+    {feature_details}

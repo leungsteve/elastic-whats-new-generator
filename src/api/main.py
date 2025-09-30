@@ -1437,15 +1437,60 @@ async def export_lab_markdown(
                 technical_depth=technical_depth
             )
 
+            # Handle story_context - can be string or object
+            story_context_raw = lab_data.get('story_context', '')
+            if isinstance(story_context_raw, dict):
+                # Convert object to formatted string
+                parts = []
+                if 'executive_quote' in story_context_raw:
+                    parts.append(f"> {story_context_raw['executive_quote']}")
+                if 'role' in story_context_raw and 'company' in story_context_raw:
+                    parts.append(f"\nYou're a {story_context_raw['role']} at {story_context_raw['company']}.")
+                if 'problem' in story_context_raw:
+                    parts.append(f"\n\n**The Problem**: {story_context_raw['problem']}")
+                if 'mission' in story_context_raw:
+                    parts.append(f"\n\n**Your Mission**: {story_context_raw['mission']}")
+                story_context = "\n".join(parts)
+            else:
+                story_context = str(story_context_raw)
+
+            # Handle setup_commands - can be string array or object array
+            setup_commands_raw = lab_data.get('setup_commands', [])
+            setup_commands = []
+            for cmd in setup_commands_raw:
+                if isinstance(cmd, dict):
+                    # Extract command from object
+                    setup_commands.append(cmd.get('command', str(cmd)))
+                else:
+                    setup_commands.append(str(cmd))
+
+            # Handle challenges - flexible parsing
+            challenges_raw = lab_data.get('challenges', [])
+            challenges = []
+            for c in challenges_raw:
+                try:
+                    challenges.append(LabChallenge(**c))
+                except Exception as e:
+                    # Try to adapt the structure
+                    adapted = {
+                        'number': c.get('number', len(challenges) + 1),
+                        'title': c.get('title', f"Challenge {len(challenges) + 1}"),
+                        'description': c.get('description') or c.get('what_youre_doing', ''),
+                        'solution': c.get('solution') or c.get('command', ''),
+                        'expected_output': c.get('expected_output', ''),
+                        'hint': c.get('hint')
+                    }
+                    challenges.append(LabChallenge(**adapted))
+
             lab_instruction = LabInstruction(
                 title=lab_data.get('title', f"Hands-on Lab: {features[0].name}"),
-                story_context=lab_data.get('story_context', ""),
+                story_context=story_context,
                 objective=lab_data.get('objective', ""),
-                scenario=lab_data.get('scenario', lab_data.get('story_context', '')),
+                scenario=lab_data.get('scenario', story_context),
                 feature_ids=[features[0].id],
                 dataset_tables=[DatasetTable(**t) for t in lab_data.get('dataset_tables', [])],
-                setup_commands=lab_data.get('setup_commands', []),
-                challenges=[LabChallenge(**c) for c in lab_data.get('challenges', [])],
+                setup_commands=setup_commands,
+                challenges=challenges,
                 setup_instructions=lab_data.get('setup_instructions', ''),
                 steps=lab_data.get('steps', []),
                 validation=lab_data.get('validation', ''),
