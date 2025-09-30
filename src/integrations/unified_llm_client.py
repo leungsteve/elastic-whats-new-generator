@@ -646,9 +646,8 @@ FEATURES TO TEACH:
 Create an engaging lab with sample data and ES|QL queries.""")
 
         # Format prompts
-        system_prompt = system_prompt_template.format(
-            difficulty_level=technical_depth
-        )
+        # System prompt doesn't need formatting - it's static
+        system_prompt = system_prompt_template
 
         user_prompt = user_prompt_template.format(
             domain=domain,
