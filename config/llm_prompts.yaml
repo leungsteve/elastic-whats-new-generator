@@ -119,70 +119,50 @@ lab_generator:
 
     CRITICAL: All commands copy-paste ready (no placeholders). Show actual before/after numbers.
 
-    OUTPUT FORMAT: Valid JSON structure:
+    OUTPUT FORMAT: Valid JSON with this exact structure:
     {{
-      "title": "Lab title with feature name",
-      "story_context": {{
-        "executive_quote": "CEO quote with urgency",
-        "role": "Your specific role",
-        "company": "Company name",
-        "problem": "Quantified problem statement",
-        "mission": "What you'll accomplish",
-        "success_metrics": {{
-          "baseline": "Before metric",
-          "target": "After metric with %",
-          "business_impact": "$ or efficiency gain"
-        }}
-      }},
+      "title": "Lab: Feature Name - Demonstrating X",
+      "story_context": "2-3 paragraphs: CEO quote + your role/company + problem + mission + success metrics",
+      "objective": "Learn how Feature X reduces Y by Z% through observable before/after evidence",
       "estimated_time_minutes": 45,
       "difficulty": "intermediate",
-      "feature_category": "performance_optimization|data_integration|intelligence_ai|automation|configuration|detection_visibility",
-      "demonstration_focus": "What observable evidence proves feature works",
       "dataset_tables": [
         {{
-          "name": "table_name",
-          "description": "What this table represents",
-          "fields": {{"field": "type", ...}},
+          "name": "index_name",
+          "description": "What this represents",
+          "fields": {{"field1": "keyword", "field2": "text"}},
           "sample_count": 100,
-          "relationships": ["other_table.field"]
+          "relationships": []
         }}
       ],
       "setup_commands": [
-        {{
-          "description": "What this command does",
-          "command": "PUT /index_name\\n{{...}}",
-          "expected_output": "{{...}}",
-          "verification_command": "GET /index_name",
-          "success_criteria": ["Check 1", "Check 2"]
-        }}
+        "PUT /index_name\n{{ \"mappings\": ... }}",
+        "POST /_bulk\n..."
       ],
       "challenges": [
         {{
           "number": 1,
-          "title": "Challenge title",
-          "business_question": "Executive quote",
-          "what_youre_doing": "1 sentence explanation",
-          "why_it_matters": "Business reason",
-          "command": "FROM index | ...",
-          "expected_output": "{{...}}",
-          "verification": "GET /...",
-          "success_criteria": ["Specific checkable 1", "Specific checkable 2"],
-          "key_metrics": {{
-            "metric_name": "before → after (X% improvement)"
-          }},
-          "common_errors": [
-            {{"error": "Exact error", "fix": "Exact solution"}}
-          ],
-          "hint": "Optional hint if needed"
+          "title": "Baseline: Measure Before State",
+          "description": "Measure current performance metrics without the feature",
+          "solution": "GET /index/_stats",
+          "expected_output": "Memory: 192GB, Query time: 8.2s",
+          "hint": "Look at memory and latency metrics"
+        }},
+        {{
+          "number": 2,
+          "title": "Enable Feature",
+          "description": "Configure and enable the feature",
+          "solution": "PUT /index/_settings\n{{ \"index.feature\": \"enabled\" }}",
+          "expected_output": "acknowledged: true"
+        }},
+        {{
+          "number": 3,
+          "title": "Measure After State",
+          "description": "Measure metrics with feature enabled",
+          "solution": "GET /index/_stats",
+          "expected_output": "Memory: 9GB (95% reduction), Query time: 0.8s (10x faster)"
         }}
-      ],
-      "business_impact_calculation": {{
-        "production_scenario": "Scale description",
-        "current_state": "Current costs/metrics",
-        "with_feature": "Improved metrics",
-        "cost_savings": "Breakdown by line item",
-        "total_annual_savings": "$X/year"
-      }}
+      ]
     }}
 
   user_prompt: |
