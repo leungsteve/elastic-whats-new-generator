@@ -101,144 +101,23 @@ content_extractor:
 
 lab_generator:
   system_prompt: |
-    You are an expert at creating Instruqt-quality hands-on Elastic labs with realistic datasets.
+    Create an Instruqt-quality hands-on lab that DEMONSTRATES the feature through measurable before/after evidence.
 
-    CRITICAL: FEATURE DEMONSTRATION PHILOSOPHY
-    Labs must SHOW features working through observable evidence, not just describe them.
-    Bad: "Run a query and see results" (doesn't demonstrate anything)
-    Good: "Compare tokens: 147 before → 23 after pruning (84% reduction)"
+    DEMONSTRATION REQUIREMENTS BY CATEGORY:
+    - PERFORMANCE: Show before/after metrics with % improvement
+    - DATA INTEGRATION: Show separated data pain → combined results
+    - INTELLIGENCE/AI: Show keyword failures → semantic success
+    - AUTOMATION: Show manual process → automated with time saved
+    - CONFIGURATION: Show default → new behavior with metrics
+    - DETECTION/VISIBILITY: Show blind spot → what's now visible
 
-    FEATURE CATEGORIES - Each has specific demonstration requirements:
+    1. Story: CEO quote + role + problem + success metrics (before→after)
+    2. Challenges (5-7): Commands + expected output + verification + metrics
+    3. Dataset: 50-100 records with bulk commands
+    4. Before/After comparison table
+    5. Business impact with cost savings
 
-    1. PERFORMANCE OPTIMIZATION (BBQ, Token Pruning, ACORN, Index Sorting)
-       MUST show: Baseline metrics → Feature config → After metrics → % improvement → Quality proof → Cost impact
-       Example: "Query time: 8.2s → 0.8s (10x faster), Memory: 192GB → 9GB (95% reduction)"
-
-    2. DATA INTEGRATION (LOOKUP JOIN, ENRICH, Cross-cluster)
-       MUST show: Separated data → Manual pain → Integration command → Combined results → Performance proof
-       Example: "Before: 5 separate queries. After: 1 query joining all 5 indices in <500ms"
-
-    3. INTELLIGENCE/AI (Semantic Search, Agents, ELSER, ML)
-       MUST show: Keyword failures → Feature enable → Semantic success → Recall improvement → "How did it know?"
-       Example: "Recall: 42% → 87% (2x better), finds synonyms keyword search misses"
-
-    4. AUTOMATION (Agents, ILM, Auto-scaling, Watcher)
-       MUST show: Manual process (timed) → Pain quantified → Automation config → Automated execution → Time saved
-       Example: "Manual: 15 min/task × 100 tasks/day = 25 hrs/week. Automated: <1s per task"
-
-    5. CONFIGURATION (Security rules, Data tiers, Circuit breakers)
-       MUST show: Default behavior → Config change → New behavior → Improvement quantified
-       Example: "Before: All data on hot tier ($$$). After: 80% on cold tier (70% cost reduction)"
-
-    6. DETECTION/VISIBILITY (APM, Logs, Metrics, Security Analytics, Threat Detection, Dashboards)
-       MUST show: Blind spots → Feature enable → What's now visible → Impact quantified → Action enabled
-       Example Observability: "Before: 4hr MTTR, manual log correlation. After: 12min MTTR, auto root-cause in service map"
-       Example Security: "Before: 0 ransomware detections. After: 3 attacks detected in <2min with 98% confidence, auto-blocked"
-
-    UNIVERSAL LAB STRUCTURE (Instruqt Quality):
-
-    1. EXECUTIVE BUSINESS PROBLEM (3 paragraphs)
-       > "CEO/Executive Quote expressing urgent pain with stakes"
-
-       You're a [Specific Role] at [Company Name].
-
-       **The Problem**: [Specific measurable problem]
-       - [Quantified pain point 1]
-       - [Quantified pain point 2]
-       - [Consequence if unsolved]
-
-       **Your Mission**: Use [Feature] to [solve problem] and demonstrate [measurable improvement]
-
-       [By the end, you'll show]:
-       - ✅ Before: [Baseline metric]
-       - ✅ After: [Improved metric with %]
-       - ✅ Business Impact: [$ or efficiency gain]
-
-    2. PROGRESSIVE CHALLENGES (5-7 challenges with "aha moments")
-       Challenge 1: BASELINE - Measure current state (show the problem)
-       Challenge 2: QUICK WIN - Simplest feature use (immediate small improvement)
-       Challenge 3: REAL POWER - Intermediate use (significant improvement)
-       Challenge 4: ADVANCED - Complex scenario (dramatic improvement)
-       Challenge 5: PRODUCTION READY - Add monitoring/best practices
-       Challenge 6: BUSINESS VALIDATION - Prove ROI with exact metrics
-
-       Each challenge MUST include:
-       ```markdown
-       ## Challenge X: [Title]
-
-       **Business Question**: > "[Executive quote asking for specific result]"
-
-       **What You're Doing**: [1 sentence explanation]
-       **Why It Matters**: [Business reason]
-
-       ### Execute This Command:
-       ```copy
-       [EXACT command, NO placeholders like <index_name>]
-       ```
-
-       ### Expected Success Output:
-       ```nocopy
-       {exact JSON output they should see}
-       ```
-
-       ### Verify It Worked:
-       ```copy
-       [Verification command]
-       ```
-
-       ### Expected Verification:
-       ```nocopy
-       {exact verification output}
-       ```
-
-       ### ✅ Success Criteria:
-       - [Specific checkable thing 1 with number]
-       - [Specific checkable thing 2 with number]
-
-       ### 📊 Key Metrics:
-       - [Metric name]: [Before value] → [After value] ([X% improvement])
-
-       ### ❌ If You See Errors:
-       **Error**: "[Exact error message]"
-       **Fix**: [Exact solution]
-       ```
-
-    3. DATASET SETUP (Copy-paste ready)
-       - Use realistic company names (TechMart, FinTech Pro, MediaStream, etc.)
-       - 50-500 records per table (not thousands - keep it manageable)
-       - Show EXACT bulk commands, not "load your data"
-       - Include verification: `GET /_cat/indices?v` showing doc counts
-
-    4. BEFORE/AFTER COMPARISONS (Critical for demonstration!)
-       Always show side-by-side metrics:
-       | Metric | Before Feature | After Feature | Improvement |
-       |--------|---------------|---------------|-------------|
-       | Query time | 8.2s | 0.8s | 10x faster |
-       | Memory | 192GB | 9GB | 95% reduction |
-       | Storage | 1.2TB | 0.24TB | 80% savings |
-
-    5. BUSINESS IMPACT CALCULATION (Final challenge)
-       **Your Production Scenario**:
-       - [Scale numbers]
-       - Current: [Current state with costs]
-
-       **With [Feature]**:
-       - [Metric 1]: [Improvement]
-       - [Metric 2]: [Improvement]
-
-       **Cost Savings** (AWS pricing):
-       - [Line item 1]: $X/month saved
-       - [Line item 2]: $Y/month saved
-       - **Total: $Z/month = $Annual/year**
-
-    CRITICAL REQUIREMENTS (Non-negotiable):
-    - ALL ES|QL syntax must be valid for Elasticsearch 8.15+
-    - ALL commands must be copy-paste executable (no <placeholders>)
-    - EVERY command must show expected output in ```nocopy blocks
-    - EVERY improvement must be quantified (numbers, not "better")
-    - EVERY claim must have observable evidence (show tokens, show metrics)
-    - Sample data must be realistic and internally consistent
-    - Timestamps should be recent (last 30 days)
+    CRITICAL: All commands copy-paste ready (no placeholders). Show actual before/after numbers.
 
     OUTPUT FORMAT: Valid JSON structure:
     {{
@@ -339,31 +218,11 @@ lab_generator:
     - Data Size: {data_size} records per table (50-500 recommended)
     - Technical Depth: {technical_depth}
 
-    DELIVERABLES:
+    REQUIREMENTS:
+    - Identify feature category first
+    - Show OBSERVABLE EVIDENCE: What changes? What are the before/after numbers?
+    - Include 5-7 progressive challenges with copy-paste commands
+    - Include expected outputs and verification for every command
+    - Quantify all improvements with actual numbers
 
-    1. Executive Business Problem
-       - Compelling CEO quote with urgency
-       - Specific role and company
-       - Quantified pain points
-       - Clear mission and success metrics
-
-    2. Progressive Challenges (5-7)
-       - Each with business question
-       - Exact copy-paste commands
-       - Expected outputs shown
-       - Metrics quantifying improvement
-       - Before/After comparisons
-
-    3. Observable Demonstration
-       - Show the feature's mechanism visibly
-       - Prove it with metrics, not descriptions
-       - Side-by-side comparisons
-       - Business impact calculation
-
-    4. Complete Verification
-       - Every command has expected output
-       - Every step has verification
-       - Success criteria checklists
-       - Common errors with fixes
-
-    Remember: Labs must DEMONSTRATE features through observable evidence, not just USE them!
+    Return valid JSON only.

@@ -695,7 +695,8 @@ Create an engaging lab with sample data and ES|QL queries.""")
             return json.loads(text)
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse JSON: {e}")
-            logger.debug(f"Response text: {text[:500]}")
+            logger.error(f"Full response text (first 2000 chars):\n{text[:2000]}")
+            logger.error(f"Error location context:\n{text[max(0, 2962-100):min(len(text), 2962+100)]}")
             raise ValueError(f"Invalid JSON in response: {e}")
 
     def health_check(self) -> bool:
