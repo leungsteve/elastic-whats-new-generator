@@ -2320,3 +2320,269 @@ body {
     font-size: 1rem;
     margin: 0;
 }
+
+/* ================================================
+   Markdown Rendering & View Toggle Styles
+   ================================================ */
+
+/* Preview Header Controls Layout */
+.preview-header-controls {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+/* View Toggle Buttons */
+.view-toggle {
+    display: flex;
+    gap: 0.5rem;
+    border-radius: 4px;
+    background: #f0f0f0;
+    padding: 3px;
+}
+
+.view-toggle button {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.875rem;
+    opacity: 0.6;
+    transition: all 0.2s ease;
+    border: none;
+    background: transparent;
+    color: #343a40;
+    border-radius: 3px;
+}
+
+.view-toggle button.active {
+    opacity: 1;
+    background: #00BFB3;
+    color: white;
+    font-weight: 500;
+}
+
+.view-toggle button:hover:not(.active) {
+    opacity: 0.8;
+    background: rgba(0, 191, 179, 0.1);
+}
+
+.view-toggle button i {
+    margin-right: 0.35rem;
+}
+
+/* Raw View Styling */
+.raw-view {
+    font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+    font-size: 0.875rem;
+    background: #f8f9fa;
+    padding: 1.5rem;
+    border-radius: 6px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    line-height: 1.5;
+    color: #2d3748;
+    border: 1px solid #e2e8f0;
+}
+
+/* Rendered View Styling */
+.rendered-view {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    line-height: 1.7;
+    color: #2d3748;
+    padding: 1rem;
+}
+
+/* Markdown Headings */
+.rendered-view h1 {
+    font-size: 2.25em;
+    font-weight: 700;
+    border-bottom: 3px solid #00BFB3;
+    padding-bottom: 0.4em;
+    margin-top: 1.5em;
+    margin-bottom: 0.8em;
+    color: #1a202c;
+}
+
+.rendered-view h2 {
+    font-size: 1.75em;
+    font-weight: 600;
+    color: #00BFB3;
+    margin-top: 1.5em;
+    margin-bottom: 0.75em;
+    padding-bottom: 0.3em;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.rendered-view h3 {
+    font-size: 1.4em;
+    font-weight: 600;
+    color: #2d3748;
+    margin-top: 1.3em;
+    margin-bottom: 0.6em;
+}
+
+.rendered-view h4 {
+    font-size: 1.15em;
+    font-weight: 600;
+    color: #4a5568;
+    margin-top: 1em;
+    margin-bottom: 0.5em;
+}
+
+/* Paragraphs */
+.rendered-view p {
+    margin-bottom: 1em;
+}
+
+/* Lists */
+.rendered-view ul,
+.rendered-view ol {
+    margin-left: 1.5em;
+    margin-bottom: 1em;
+}
+
+.rendered-view li {
+    margin-bottom: 0.4em;
+}
+
+.rendered-view ul {
+    list-style-type: disc;
+}
+
+.rendered-view ol {
+    list-style-type: decimal;
+}
+
+/* Nested lists */
+.rendered-view ul ul,
+.rendered-view ol ul {
+    list-style-type: circle;
+    margin-top: 0.4em;
+}
+
+.rendered-view ul ol,
+.rendered-view ol ol {
+    list-style-type: lower-alpha;
+    margin-top: 0.4em;
+}
+
+/* Inline code */
+.rendered-view code {
+    background: #f3f4f6;
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+    font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+    font-size: 0.9em;
+    color: #e53e3e;
+    border: 1px solid #e2e8f0;
+}
+
+/* Code blocks */
+.rendered-view pre {
+    background: #2d3748;
+    color: #f7fafc;
+    padding: 1.25em;
+    border-radius: 6px;
+    overflow-x: auto;
+    margin: 1.5em 0;
+    border: 1px solid #1a202c;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.rendered-view pre code {
+    background: transparent;
+    padding: 0;
+    border: none;
+    color: inherit;
+    font-size: 0.875em;
+    line-height: 1.6;
+}
+
+/* Blockquotes */
+.rendered-view blockquote {
+    border-left: 4px solid #00BFB3;
+    padding-left: 1.25em;
+    margin: 1.5em 0;
+    color: #4a5568;
+    font-style: italic;
+    background: #f7fafc;
+    padding: 1em 1em 1em 1.5em;
+    border-radius: 0 4px 4px 0;
+}
+
+.rendered-view blockquote p:last-child {
+    margin-bottom: 0;
+}
+
+/* Links */
+.rendered-view a {
+    color: #0077be;
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: all 0.2s ease;
+}
+
+.rendered-view a:hover {
+    color: #00BFB3;
+    border-bottom-color: #00BFB3;
+}
+
+/* Horizontal Rules */
+.rendered-view hr {
+    border: none;
+    border-top: 2px solid #e2e8f0;
+    margin: 2em 0;
+}
+
+/* Tables */
+.rendered-view table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1.5em 0;
+    border: 1px solid #e2e8f0;
+}
+
+.rendered-view th {
+    background: #f7fafc;
+    font-weight: 600;
+    text-align: left;
+    padding: 0.75em;
+    border: 1px solid #e2e8f0;
+}
+
+.rendered-view td {
+    padding: 0.75em;
+    border: 1px solid #e2e8f0;
+}
+
+.rendered-view tr:nth-child(even) {
+    background: #f7fafc;
+}
+
+/* Strong/Bold */
+.rendered-view strong {
+    font-weight: 600;
+    color: #1a202c;
+}
+
+/* Emphasis/Italic */
+.rendered-view em {
+    font-style: italic;
+}
+
+/* Images */
+.rendered-view img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+    margin: 1em 0;
+}
+
+/* Checkboxes */
+.rendered-view input[type="checkbox"] {
+    margin-right: 0.5em;
+}
+
+/* Separators between slides/sections */
+.rendered-view > hr {
+    border-top: 3px dashed #cbd5e0;
+    margin: 2.5em 0;
+}

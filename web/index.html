@@ -268,16 +268,26 @@
                         <div class="preview-panel-large" id="presentation-preview">
                             <div class="preview-header">
                                 <h3>Presentation Preview</h3>
-                                <div class="export-options">
-                                    <button class="btn btn-secondary btn-small" onclick="exportPresentation('standard')">
-                                        <i class="fas fa-file-text"></i> Standard
-                                    </button>
-                                    <button class="btn btn-secondary btn-small" onclick="exportPresentation('github')">
-                                        <i class="fab fa-github"></i> GitHub
-                                    </button>
-                                    <button class="btn btn-secondary btn-small" onclick="exportPresentation('reveal_js')">
-                                        <i class="fas fa-desktop"></i> Reveal.js
-                                    </button>
+                                <div class="preview-header-controls">
+                                    <div class="view-toggle">
+                                        <button class="btn btn-small active" data-view="rendered" onclick="app.togglePresentationView('rendered')">
+                                            <i class="fas fa-eye"></i> Rendered
+                                        </button>
+                                        <button class="btn btn-small" data-view="raw" onclick="app.togglePresentationView('raw')">
+                                            <i class="fas fa-code"></i> Raw
+                                        </button>
+                                    </div>
+                                    <div class="export-options">
+                                        <button class="btn btn-secondary btn-small" onclick="exportPresentation('standard')">
+                                            <i class="fas fa-file-text"></i> Standard
+                                        </button>
+                                        <button class="btn btn-secondary btn-small" onclick="exportPresentation('github')">
+                                            <i class="fab fa-github"></i> GitHub
+                                        </button>
+                                        <button class="btn btn-secondary btn-small" onclick="exportPresentation('reveal_js')">
+                                            <i class="fas fa-desktop"></i> Reveal.js
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                             <div class="preview-content-large" id="presentation-content">
@@ -372,13 +382,23 @@
                         <div class="preview-panel-large" id="lab-preview">
                             <div class="preview-header">
                                 <h3>Lab Workshop Preview</h3>
-                                <div class="export-options">
-                                    <button class="btn btn-secondary btn-small" onclick="exportLabs('inline')">
-                                        <i class="fas fa-eye"></i> View Inline
-                                    </button>
-                                    <button class="btn btn-secondary btn-small" onclick="exportLabs('file')">
-                                        <i class="fas fa-download"></i> Download
-                                    </button>
+                                <div class="preview-header-controls">
+                                    <div class="view-toggle">
+                                        <button class="btn btn-small active" data-view="rendered" onclick="app.toggleLabView('rendered')">
+                                            <i class="fas fa-eye"></i> Rendered
+                                        </button>
+                                        <button class="btn btn-small" data-view="raw" onclick="app.toggleLabView('raw')">
+                                            <i class="fas fa-code"></i> Raw
+                                        </button>
+                                    </div>
+                                    <div class="export-options">
+                                        <button class="btn btn-secondary btn-small" onclick="exportLabs('inline')">
+                                            <i class="fas fa-eye"></i> View Inline
+                                        </button>
+                                        <button class="btn btn-secondary btn-small" onclick="exportLabs('file')">
+                                            <i class="fas fa-download"></i> Download
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                             <div class="preview-content-large" id="lab-content">
@@ -710,6 +730,11 @@
         </div>
     </div>
 
-    <script src="/static/app.js?v=19"></script>
+    <!-- Markdown rendering libraries -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.1.0/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/highlight.min.js"></script>
+
+    <script src="/static/app.js?v=20"></script>
 </body>
 </html>

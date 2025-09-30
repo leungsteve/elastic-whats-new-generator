@@ -7,6 +7,33 @@ class ElasticGenerator {
         this.currentLabs = null;
         this.isGenerating = false;
 
+        // View mode for presentation and labs
+        this.presentationViewMode = 'rendered';
+        this.labViewMode = 'rendered';
+        this.presentationMarkdown = '';
+        this.labMarkdown = '';
+
+        // Configure marked.js for syntax highlighting
+        if (typeof marked !== 'undefined' && typeof hljs !== 'undefined') {
+            marked.setOptions({
+                breaks: true,
+                gfm: true,
+                headerIds: true,
+                mangle: false,
+                sanitize: false,
+                highlight: function(code, lang) {
+                    if (lang && hljs.getLanguage(lang)) {
+                        try {
+                            return hljs.highlight(code, { language: lang }).value;
+                        } catch (err) {
+                            console.error('Highlight error:', err);
+                        }
+                    }
+                    return hljs.highlightAuto(code).value;
+                }
+            });
+        }
+
         this.init();
     }
 
@@ -1711,7 +1738,47 @@ class ElasticGenerator {
             });
         }
 
-        content.textContent = previewText;
+        // Store markdown for toggling
+        this.presentationMarkdown = previewText;
+
+        // Render based on current view mode
+        this.renderPresentationView();
+    }
+
+    renderPresentationView() {
+        const content = document.getElementById('presentation-content');
+
+        if (!this.presentationMarkdown) {
+            return;
+        }
+
+        if (this.presentationViewMode === 'rendered') {
+            // Render as formatted markdown
+            if (typeof marked !== 'undefined') {
+                content.innerHTML = marked.parse(this.presentationMarkdown);
+                content.classList.remove('raw-view');
+                content.classList.add('rendered-view');
+            } else {
+                // Fallback if marked.js not loaded
+                content.textContent = this.presentationMarkdown;
+            }
+        } else {
+            // Show raw markdown
+            content.textContent = this.presentationMarkdown;
+            content.classList.remove('rendered-view');
+            content.classList.add('raw-view');
+        }
+    }
+
+    togglePresentationView(mode) {
+        this.presentationViewMode = mode;
+
+        // Update button states
+        document.querySelectorAll('#presentation-preview .view-toggle button').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.view === mode);
+        });
+
+        this.renderPresentationView();
     }
 
     async exportPresentation(format) {
@@ -1832,7 +1899,48 @@ class ElasticGenerator {
         }
 
         const labContent = this.currentLabs.content || 'No content available';
-        content.textContent = labContent;
+
+        // Store markdown for toggling
+        this.labMarkdown = labContent;
+
+        // Render based on current view mode
+        this.renderLabView();
+    }
+
+    renderLabView() {
+        const content = document.getElementById('lab-content');
+
+        if (!this.labMarkdown) {
+            return;
+        }
+
+        if (this.labViewMode === 'rendered') {
+            // Render as formatted markdown
+            if (typeof marked !== 'undefined') {
+                content.innerHTML = marked.parse(this.labMarkdown);
+                content.classList.remove('raw-view');
+                content.classList.add('rendered-view');
+            } else {
+                // Fallback if marked.js not loaded
+                content.textContent = this.labMarkdown;
+            }
+        } else {
+            // Show raw markdown
+            content.textContent = this.labMarkdown;
+            content.classList.remove('rendered-view');
+            content.classList.add('raw-view');
+        }
+    }
+
+    toggleLabView(mode) {
+        this.labViewMode = mode;
+
+        // Update button states
+        document.querySelectorAll('#lab-preview .view-toggle button').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.view === mode);
+        });
+
+        this.renderLabView();
     }
 
     async exportLabs(exportFormat) {
