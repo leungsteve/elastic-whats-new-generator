@@ -87,6 +87,13 @@ class ElasticGenerator {
             }
         });
 
+        // Content preview modal close on outside click
+        document.getElementById('content-preview-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'content-preview-modal') {
+                this.closeContentPreview();
+            }
+        });
+
         // Presentation domain change
         document.getElementById('presentation-domain').addEventListener('change', (e) => {
             this.updatePresentationFeatureSelector();
@@ -2203,6 +2210,9 @@ class ElasticGenerator {
                     <td><span class="feature-count">${featureNames}${moreFeatures}</span></td>
                     <td class="timestamp-cell">${timestamp}</td>
                     <td class="actions-cell">
+                        <button class="btn-icon" onclick="window.app.viewContent('${content.id}')" title="View">
+                            <i class="fas fa-eye"></i>
+                        </button>
                         <button class="btn-icon" onclick="window.app.downloadContent('${content.id}')" title="Download">
                             <i class="fas fa-download"></i>
                         </button>
@@ -2319,6 +2329,80 @@ class ElasticGenerator {
         } catch (error) {
             console.error('Failed to download content:', error);
         }
+    }
+
+    async viewContent(contentId) {
+        try {
+            this.showToast('Loading content...', 'info');
+
+            // Fetch markdown content
+            const response = await fetch(`/api/generated-content/${contentId}/markdown`);
+            if (!response.ok) {
+                throw new Error('Failed to fetch content');
+            }
+            const data = await response.json();
+
+            // Store for toggling
+            this.previewMarkdown = data.markdown;
+            this.previewViewMode = 'rendered';
+
+            // Update title
+            document.getElementById('preview-modal-title').textContent = data.title;
+
+            // Render content
+            this.renderPreviewView();
+
+            // Show modal
+            document.getElementById('content-preview-modal').style.display = 'flex';
+
+            this.showToast('Content loaded', 'success');
+        } catch (error) {
+            console.error('Failed to load content:', error);
+            this.showToast('Failed to load content', 'error');
+        }
+    }
+
+    renderPreviewView() {
+        const content = document.getElementById('preview-modal-content');
+
+        if (!this.previewMarkdown) {
+            content.innerHTML = '<div class="empty-state"><p>No content available</p></div>';
+            return;
+        }
+
+        if (this.previewViewMode === 'rendered') {
+            // Render as formatted markdown
+            if (typeof marked !== 'undefined') {
+                content.innerHTML = marked.parse(this.previewMarkdown);
+                content.classList.add('rendered-view');
+                content.classList.remove('raw-view');
+            } else {
+                // Fallback if marked.js not loaded
+                content.textContent = this.previewMarkdown;
+            }
+        } else {
+            // Show raw markdown
+            content.textContent = this.previewMarkdown;
+            content.classList.add('raw-view');
+            content.classList.remove('rendered-view');
+        }
+    }
+
+    togglePreviewView(mode) {
+        this.previewViewMode = mode;
+
+        // Update button states
+        document.querySelectorAll('#content-preview-modal .view-toggle button').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.view === mode);
+        });
+
+        this.renderPreviewView();
+    }
+
+    closeContentPreview() {
+        document.getElementById('content-preview-modal').style.display = 'none';
+        this.previewMarkdown = '';
+        this.previewViewMode = 'rendered';
     }
 
     async loadLLMLogs() {

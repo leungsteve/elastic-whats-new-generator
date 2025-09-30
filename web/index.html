@@ -730,11 +730,36 @@
         </div>
     </div>
 
+    <!-- Content Preview Modal -->
+    <div class="modal" id="content-preview-modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2 id="preview-modal-title">Content Preview</h2>
+                <div class="preview-controls">
+                    <div class="view-toggle">
+                        <button class="btn btn-small active" data-view="rendered" onclick="app.togglePreviewView('rendered')">
+                            <i class="fas fa-eye"></i> Rendered
+                        </button>
+                        <button class="btn btn-small" data-view="raw" onclick="app.togglePreviewView('raw')">
+                            <i class="fas fa-code"></i> Raw
+                        </button>
+                    </div>
+                    <button class="close-btn" onclick="app.closeContentPreview()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div id="preview-modal-content" class="rendered-view"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- Markdown rendering libraries -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css">
     <script src="https://cdn.jsdelivr.net/npm/marked@11.1.0/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/highlight.min.js"></script>
 
-    <script src="/static/app.js?v=20"></script>
+    <script src="/static/app.js?v=21"></script>
 </body>
 </html>
