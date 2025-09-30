@@ -2077,7 +2077,7 @@ class ElasticGenerator {
 
         let html = '';
         for (const content of contents) {
-            const timestamp = new Date(content.generated_at).toLocaleString('en-US', {
+            const timestamp = new Date(content.timestamp).toLocaleString('en-US', {
                 month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
             });
             const icon = content.content_type === 'presentation' ? 'fa-file-powerpoint' : 'fa-flask';
@@ -2138,7 +2138,7 @@ class ElasticGenerator {
                 case 'title': aVal = a.title; bVal = b.title; break;
                 case 'domain': aVal = a.domain; bVal = b.domain; break;
                 case 'features': aVal = a.feature_ids?.length || 0; bVal = b.feature_ids?.length || 0; break;
-                case 'timestamp': aVal = new Date(a.generated_at); bVal = new Date(b.generated_at); break;
+                case 'timestamp': aVal = new Date(a.timestamp); bVal = new Date(b.timestamp); break;
                 default: return 0;
             }
 
