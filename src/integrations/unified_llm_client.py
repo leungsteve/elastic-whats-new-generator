@@ -568,46 +568,85 @@ Extract the key information in the required JSON format."""
         """
         logger.info(f"Generating presentation using {self.provider.value}")
 
-        # Build feature context
+        # Build feature context - adjust depth based on audience and technical level
+        use_case_limit = 5 if technical_depth == "high" else 3
+        capability_limit = 6 if technical_depth == "high" else 4
+        benefit_limit = 5 if audience == "business" else 3
+
         feature_contexts = []
         for feature in features:
             if not (feature.content_research and feature.content_research.llm_extracted):
                 continue
 
             extracted = feature.content_research.llm_extracted
+
+            # Core feature information
             context = f"""
 Feature: {feature.name}
 Summary: {extracted.summary}
+
 Use Cases:
-{chr(10).join(f'  - {uc}' for uc in extracted.use_cases[:3])}
+{chr(10).join(f'  - {uc}' for uc in extracted.use_cases[:use_case_limit])}
+
 Key Capabilities:
-{chr(10).join(f'  - {cap}' for cap in extracted.key_capabilities[:4])}
+{chr(10).join(f'  - {cap}' for cap in extracted.key_capabilities[:capability_limit])}
+
 Benefits:
-{chr(10).join(f'  - {ben}' for ben in extracted.benefits[:3])}
+{chr(10).join(f'  - {ben}' for ben in extracted.benefits[:benefit_limit])}
 """
 
-            # Add PRESENTATION-SPECIFIC HINTS (NEW)
+            # Add QUANTIFIED METRICS prominently (NEW)
+            if hasattr(extracted, 'quantified_improvements') and extracted.quantified_improvements:
+                context += "\n📊 Quantified Improvements:\n"
+                context += chr(10).join(f'  - {metric}' for metric in extracted.quantified_improvements[:5])
+                context += "\n"
+
+            # Add PRESENTATION-SPECIFIC HINTS
             if hasattr(extracted, 'demo_scenario') and extracted.demo_scenario:
                 context += f"\n📺 Demo Scenario: {extracted.demo_scenario}\n"
 
             if hasattr(extracted, 'business_impact_metrics') and extracted.business_impact_metrics:
                 context += "\n💰 Business Impact Metrics:\n"
-                context += chr(10).join(f'  - {metric}' for metric in extracted.business_impact_metrics[:4])
+                context += chr(10).join(f'  - {metric}' for metric in extracted.business_impact_metrics[:5])
                 context += "\n"
 
             if hasattr(extracted, 'competitive_advantages') and extracted.competitive_advantages:
                 context += "\n🏆 Competitive Advantages:\n"
-                context += chr(10).join(f'  - {adv}' for adv in extracted.competitive_advantages[:3])
+                context += chr(10).join(f'  - {adv}' for adv in extracted.competitive_advantages[:4])
                 context += "\n"
 
+            # Add TECHNICAL DEPTH content for technical audiences
+            if technical_depth == "high" and audience in ["technical", "mixed"]:
+                if hasattr(extracted, 'configuration_examples') and extracted.configuration_examples:
+                    context += "\n⚙️  Configuration Examples:\n"
+                    context += chr(10).join(f'  - {cfg}' for cfg in extracted.configuration_examples[:3])
+                    context += "\n"
+
+                if hasattr(extracted, 'api_commands') and extracted.api_commands:
+                    context += "\n💻 API Commands:\n"
+                    context += chr(10).join(f'  - {cmd}' for cmd in extracted.api_commands[:3])
+                    context += "\n"
+
+                if hasattr(extracted, 'technical_requirements') and extracted.technical_requirements:
+                    context += "\n🔧 Technical Requirements:\n"
+                    context += chr(10).join(f'  - {req}' for req in extracted.technical_requirements[:3])
+                    context += "\n"
+
+            # Add comparisons and limitations (valuable for all audiences)
+            if hasattr(extracted, 'comparisons') and extracted.comparisons:
+                context += "\n⚖️  Comparisons:\n"
+                context += chr(10).join(f'  - {comp}' for comp in extracted.comparisons[:4])
+                context += "\n"
+
+            if hasattr(extracted, 'limitations') and extracted.limitations:
+                context += "\n⚠️  Limitations:\n"
+                context += chr(10).join(f'  - {lim}' for lim in extracted.limitations[:2])
+                context += "\n"
+
+            # Add visual aids suggestions
             if hasattr(extracted, 'visual_aids_suggestions') and extracted.visual_aids_suggestions:
                 context += "\n📊 Visual Aid Suggestions:\n"
                 context += chr(10).join(f'  - {vis}' for vis in extracted.visual_aids_suggestions[:3])
-                context += "\n"
-
-            if hasattr(extracted, 'comparisons') and extracted.comparisons:
-                context += "\n⚖️  Comparisons:\n"
-                context += chr(10).join(f'  - {comp}' for comp in extracted.comparisons[:3])
                 context += "\n"
 
             feature_contexts.append(context)
@@ -662,8 +701,15 @@ Guidelines:
 - Follow the 7-slide structure exactly
 - Group features by theme (Simplify/Optimize/AI Innovation)
 - Each theme slide should highlight 2-4 features
-- Business case slide must show ROI and competitive advantages
-- Opening hook should identify a relatable challenge""")
+- **QUANTIFY EVERYTHING**: Use specific metrics (95% reduction, 5x faster, 32x compression)
+- **Business Case Slide Requirements**:
+  * Include 3-5 quantified business impact metrics
+  * Show before/after comparisons with specific numbers
+  * Highlight competitive advantages with concrete differentiators
+  * Calculate ROI using provided business impact metrics
+- Technical audiences: Include configuration examples and API commands
+- Business audiences: Focus on ROI, cost savings, and competitive differentiation
+- Opening hook should identify a relatable challenge with industry context""")
 
         # Get user prompt template (with fallback)
         user_prompt_template = presentation_prompts.get('user_prompt', """Generate a {slide_count}-slide presentation for Elastic {domain} following the REQUIRED 7-slide structure.
@@ -672,15 +718,29 @@ FEATURES TO INCLUDE (classify by theme):
 {feature_contexts}
 
 REQUIRED STRUCTURE:
-Slide 1: Opening Hook - Start with infrastructure/operational challenge
+Slide 1: Opening Hook - Start with infrastructure/operational challenge (use industry context)
 Slide 2: Innovation Overview - Preview three game-changing themes
 Slide 3: Simplify Theme - Features that reduce complexity
 Slide 4: Optimize Theme - Features that improve performance
 Slide 5: AI Innovation Theme - Features leveraging AI/ML
-Slide 6: Business Case - ROI, cost savings, competitive advantages
+Slide 6: Business Case - **CRITICAL: Use Quantified Improvements and Business Impact Metrics**
+  - Must include specific numbers (%, x faster, cost reduction)
+  - Show before/after comparisons from the provided metrics
+  - Highlight competitive advantages with concrete differentiators
+  - Calculate ROI when business impact metrics are provided
 Slide 7: Call to Action - Next steps (demo, trial, contact)
 
-Classify each feature into one of the three themes and create a cohesive story.""")
+CONTENT USAGE INSTRUCTIONS:
+- **Quantified Improvements**: Use these metrics prominently in feature slides and business case
+- **Business Impact Metrics**: Calculate and present ROI in the business case slide
+- **Competitive Advantages**: Weave into narrative to show differentiation
+- **Configuration Examples**: Include for technical audiences (technical_depth=high)
+- **Demo Scenarios**: Use to create concrete, relatable examples
+- **Visual Aid Suggestions**: Reference in speaker notes for presentation delivery
+- **Comparisons**: Use to position against alternatives
+- **Limitations**: Address proactively in speaker notes for credibility
+
+Classify each feature into one of the three themes and create a cohesive, quantified story.""")
 
         # Format prompts with variables
         system_prompt = system_prompt_template.format(
