@@ -12,7 +12,7 @@ import logging
 import yaml
 from pathlib import Path
 from typing import Dict, List, Optional, Any
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
@@ -352,7 +352,7 @@ class UnifiedLLMClient:
         logger.info(f"Extracting content for {feature_name} using {self.provider.value}")
 
         system_prompt = """You are an expert technical writer analyzing Elastic product documentation.
-Your task is to extract key structured information from raw documentation text.
+Your task is to extract key structured information from raw documentation text WITH SPECIFIC TECHNICAL DETAILS.
 
 Output MUST be valid JSON with this exact structure:
 {
@@ -361,17 +361,113 @@ Output MUST be valid JSON with this exact structure:
   "key_capabilities": ["capability 1", "capability 2", ...],
   "benefits": ["benefit 1", "benefit 2", ...],
   "technical_requirements": ["requirement 1", "requirement 2", ...],
+  "configuration_examples": ["complete config block 1", "complete config block 2", ...],
+  "metrics_examples": ["before/after metric 1", "benchmark 2", ...],
+  "api_commands": ["complete API command 1", "complete API command 2", ...],
+  "implementation_steps": ["step 1", "step 2", ...],
+  "limitations": ["limitation 1", "caveat 2", ...],
+  "prerequisites": ["prerequisite 1", "dependency 2", ...],
+  "version_info": "9.1.0+, Serverless Preview, AWS us-east-1",
+  "comparisons": ["comparison 1", "comparison 2", ...],
+  "hands_on_exercise_ideas": ["exercise 1", "exercise 2", ...],
+  "sample_data_suggestions": ["data idea 1", "data idea 2", ...],
+  "validation_checkpoints": ["checkpoint 1", "checkpoint 2", ...],
+  "common_pitfalls": ["pitfall 1", "pitfall 2", ...],
+  "demo_scenario": "compelling demo scenario for presentations",
+  "business_impact_metrics": ["ROI metric 1", "efficiency gain 2", ...],
+  "competitive_advantages": ["advantage 1", "advantage 2", ...],
+  "visual_aids_suggestions": ["diagram suggestion 1", "chart suggestion 2", ...],
   "target_audience": "developers|devops|architects|data-engineers|security-analysts",
   "complexity_level": "beginner|intermediate|advanced"
 }
 
-Guidelines:
-- Extract 3-5 use cases
-- Extract 4-6 key capabilities
-- Extract 3-5 benefits (both technical and business)
-- Extract 2-4 technical requirements
-- Be concise but informative
-- Focus on practical, actionable information"""
+CRITICAL EXTRACTION GUIDELINES:
+
+1. **Configuration Examples** - Extract COMPLETE code blocks:
+   - Include full PUT/POST request body with all parameters
+   - Show complete mapping definitions, not snippets
+   - Example: "PUT /my-index\\n{\\n  \\"mappings\\": {\\n    \\"properties\\": {\\n      \\"embedding\\": {\\n        \\"type\\": \\"dense_vector\\",\\n        \\"dims\\": 768,\\n        \\"index_options\\": { \\"type\\": \\"int8_hnsw\\" }\\n      }\\n    }\\n  }\\n}"
+
+2. **Metrics Examples** - Extract CONCRETE numbers with context:
+   - Include exact before/after values (e.g., "192GB → 9GB memory usage")
+   - Include percentage improvements (e.g., "95% reduction in memory")
+   - Include benchmark results (e.g., "NDCG@10: 0.1998 → 0.2059")
+   - Include throughput/latency data (e.g., "5x faster filtered search")
+
+3. **API Commands** - Extract COMPLETE working examples:
+   - Full curl commands with headers if shown
+   - Complete request/response bodies
+   - Include all required parameters
+   - Example: "POST /_search\\n{\\n  \\"query\\": {\\n    \\"knn\\": {\\n      \\"field\\": \\"embedding\\",\\n      \\"query_vector\\": [0.1, 0.2],\\n      \\"num_candidates\\": 30\\n    }\\n  }\\n}"
+
+4. **Implementation Steps** - Extract step-by-step guide:
+   - Order steps logically (1, 2, 3...)
+   - Include action verbs ("Create", "Configure", "Execute")
+   - Example: "1. Define dense_vector mapping with quantization", "2. Ingest documents", "3. Execute kNN search"
+
+5. **Limitations** - Extract ALL constraints and caveats:
+   - Regional restrictions (e.g., "Only available in AWS us-east-1")
+   - Performance constraints (e.g., "Rate limit: 500 req/min")
+   - Compatibility issues (e.g., "Not supported in GovCloud")
+   - Technical constraints (e.g., "Max batch size: 16 documents")
+   - Conditions (e.g., "Only beneficial when 40%+ vectors filtered")
+
+6. **Prerequisites** - Extract dependencies and requirements:
+   - Software versions (e.g., "Elasticsearch 9.1+")
+   - Infrastructure requirements (e.g., "HNSW graph-based kNN")
+   - Configuration needs (e.g., "float32 vectors with 384+ dimensions")
+
+7. **Version Info** - Extract availability information:
+   - Format: "MinVersion, Tier, Region/Cloud"
+   - Example: "9.1.0+, Serverless Preview, AWS us-east-1"
+   - Include status: "Technical Preview", "GA", "Beta"
+
+8. **Comparisons** - Extract performance/feature comparisons:
+   - Before/after comparisons (e.g., "ACORN vs naive: 5x speedup")
+   - Method comparisons (e.g., "BBQ better ranking in 9/10 datasets vs float32")
+   - Include specific numbers/datasets when available
+
+9. **Hands-On Exercise Ideas** - Design engaging lab activities:
+   - Specific, achievable tasks users can complete
+   - Progressive difficulty (beginner → advanced)
+   - Example: "Configure BBQ quantization on e-commerce product vectors", "Compare query performance with/without ACORN filtering"
+
+10. **Sample Data Suggestions** - Recommend realistic datasets:
+    - Specific data types and scales
+    - Example: "1M e-commerce product descriptions with 768-dim embeddings", "Apache access logs (100GB) for observability testing"
+    - Include data generation hints if applicable
+
+11. **Validation Checkpoints** - Define success criteria:
+    - Observable outcomes at each implementation step
+    - Example: "Verify index size reduced by ~90%", "Confirm search latency < 50ms", "Check NDCG@10 score > 0.85"
+
+12. **Common Pitfalls** - Identify troubleshooting tips:
+    - Typical misconfigurations or errors
+    - Example: "Forgetting to set num_candidates causes poor recall", "Using BBQ on <384 dims reduces quality"
+
+13. **Demo Scenario** - Create compelling narrative:
+    - Real-world relatable scenario (1-2 sentences)
+    - Example: "E-commerce site with 10M products needs sub-50ms semantic search while reducing infrastructure costs by 80%"
+
+14. **Business Impact Metrics** - Quantify business value:
+    - Cost savings, revenue impact, efficiency gains
+    - Example: "$50K/year cloud cost savings", "2x faster time-to-resolution", "30% increase in search conversion"
+
+15. **Competitive Advantages** - Highlight differentiators:
+    - How Elastic stands out vs alternatives
+    - Example: "Only solution with both BBQ and ACORN in single platform", "5x faster than Pinecone filtered search"
+
+16. **Visual Aids Suggestions** - Recommend presentation visuals:
+    - Specific diagram/chart types
+    - Example: "Before/after memory comparison bar chart", "Query latency vs filter selectivity line graph", "HNSW graph traversal animation"
+
+QUALITY STANDARDS:
+- Prefer specific over generic ("Uses int8_hnsw index_options" > "Supports quantization")
+- Include units and context with numbers ("192GB → 6GB" not "32x reduction")
+- Extract 3-5 items per field (more for complex features)
+- Prioritize actionable, technical details over marketing language
+- For lab hints: Be specific and testable
+- For presentation hints: Be compelling and business-focused"""
 
         user_prompt = f"""Analyze this Elastic feature documentation and extract structured information.
 
@@ -405,14 +501,41 @@ Extract the key information in the required JSON format."""
                 key_capabilities=response_data.get("key_capabilities", []),
                 benefits=response_data.get("benefits", []),
                 technical_requirements=response_data.get("technical_requirements", []),
+                configuration_examples=response_data.get("configuration_examples", []),
+                metrics_examples=response_data.get("metrics_examples", []),
+                api_commands=response_data.get("api_commands", []),
+                # Enhanced fields
+                implementation_steps=response_data.get("implementation_steps", []),
+                limitations=response_data.get("limitations", []),
+                prerequisites=response_data.get("prerequisites", []),
+                version_info=response_data.get("version_info"),
+                comparisons=response_data.get("comparisons", []),
+                # Lab generation hints
+                hands_on_exercise_ideas=response_data.get("hands_on_exercise_ideas", []),
+                sample_data_suggestions=response_data.get("sample_data_suggestions", []),
+                validation_checkpoints=response_data.get("validation_checkpoints", []),
+                common_pitfalls=response_data.get("common_pitfalls", []),
+                # Presentation generation hints
+                demo_scenario=response_data.get("demo_scenario"),
+                business_impact_metrics=response_data.get("business_impact_metrics", []),
+                competitive_advantages=response_data.get("competitive_advantages", []),
+                visual_aids_suggestions=response_data.get("visual_aids_suggestions", []),
                 target_audience=response_data.get("target_audience", "developers"),
                 complexity_level=response_data.get("complexity_level", "intermediate"),
-                extracted_at=datetime.utcnow(),
+                extracted_at=datetime.now(timezone.utc),
                 model_used=f"{self.provider.value}/{self.model}"
             )
 
             logger.info(f"Successfully extracted content: {len(extracted.use_cases)} use cases, "
-                       f"{len(extracted.key_capabilities)} capabilities")
+                       f"{len(extracted.key_capabilities)} capabilities, "
+                       f"{len(extracted.configuration_examples)} config examples, "
+                       f"{len(extracted.metrics_examples)} metrics, "
+                       f"{len(extracted.api_commands)} commands, "
+                       f"{len(extracted.implementation_steps)} steps, "
+                       f"{len(extracted.limitations)} limitations, "
+                       f"{len(extracted.comparisons)} comparisons, "
+                       f"{len(extracted.hands_on_exercise_ideas)} lab exercises, "
+                       f"{len(extracted.validation_checkpoints)} checkpoints")
 
             return extracted
 
@@ -462,6 +585,31 @@ Key Capabilities:
 Benefits:
 {chr(10).join(f'  - {ben}' for ben in extracted.benefits[:3])}
 """
+
+            # Add PRESENTATION-SPECIFIC HINTS (NEW)
+            if hasattr(extracted, 'demo_scenario') and extracted.demo_scenario:
+                context += f"\n📺 Demo Scenario: {extracted.demo_scenario}\n"
+
+            if hasattr(extracted, 'business_impact_metrics') and extracted.business_impact_metrics:
+                context += "\n💰 Business Impact Metrics:\n"
+                context += chr(10).join(f'  - {metric}' for metric in extracted.business_impact_metrics[:4])
+                context += "\n"
+
+            if hasattr(extracted, 'competitive_advantages') and extracted.competitive_advantages:
+                context += "\n🏆 Competitive Advantages:\n"
+                context += chr(10).join(f'  - {adv}' for adv in extracted.competitive_advantages[:3])
+                context += "\n"
+
+            if hasattr(extracted, 'visual_aids_suggestions') and extracted.visual_aids_suggestions:
+                context += "\n📊 Visual Aid Suggestions:\n"
+                context += chr(10).join(f'  - {vis}' for vis in extracted.visual_aids_suggestions[:3])
+                context += "\n"
+
+            if hasattr(extracted, 'comparisons') and extracted.comparisons:
+                context += "\n⚖️  Comparisons:\n"
+                context += chr(10).join(f'  - {comp}' for comp in extracted.comparisons[:3])
+                context += "\n"
+
             feature_contexts.append(context)
 
         # Load prompts from config (with fallback to defaults)
@@ -621,10 +769,10 @@ Classify each feature into one of the three themes and create a cohesive story."
             if feature.documentation_links:
                 details += f"\nDocs: {feature.documentation_links[0]}"
 
-            # ENHANCEMENT: Add extracted content if available
+            # ENHANCEMENT: Add AI-extracted content if available
             if hasattr(feature, 'content_research') and feature.content_research:
                 cr = feature.content_research
-                ec = cr.extracted_content if hasattr(cr, 'extracted_content') else None
+                ec = cr.llm_extracted if hasattr(cr, 'llm_extracted') else None
 
                 if ec:
                     # Add use cases
@@ -645,15 +793,48 @@ Classify each feature into one of the three themes and create a cohesive story."
                         for req in ec.technical_requirements[:3]:
                             details += f"\n  - {req}"
 
-                    # Add code examples
-                    if hasattr(ec, 'code_examples') and ec.code_examples:
-                        details += f"\n\nCode Examples:"
-                        for ce in ec.code_examples[:2]:
-                            if hasattr(ce, 'code') and ce.code:
-                                desc = getattr(ce, 'description', 'Example')
-                                details += f"\n  {desc}:\n  {ce.code[:200]}"
+                    # Add configuration examples (NEW)
+                    if hasattr(ec, 'configuration_examples') and ec.configuration_examples:
+                        details += f"\n\nConfiguration Examples:"
+                        for conf in ec.configuration_examples[:3]:
+                            details += f"\n  - {conf}"
 
-                logger.info(f"Enhanced context for {feature.name} with extracted content")
+                    # Add metrics examples (NEW)
+                    if hasattr(ec, 'metrics_examples') and ec.metrics_examples:
+                        details += f"\n\nMetrics Examples:"
+                        for metric in ec.metrics_examples[:3]:
+                            details += f"\n  - {metric}"
+
+                    # Add API commands (NEW)
+                    if hasattr(ec, 'api_commands') and ec.api_commands:
+                        details += f"\n\nAPI Commands:"
+                        for cmd in ec.api_commands[:3]:
+                            details += f"\n  - {cmd}"
+
+                    # Add LAB-SPECIFIC HINTS (NEW)
+                    if hasattr(ec, 'hands_on_exercise_ideas') and ec.hands_on_exercise_ideas:
+                        details += f"\n\n🧪 Hands-On Exercise Ideas:"
+                        for ex in ec.hands_on_exercise_ideas:
+                            details += f"\n  - {ex}"
+
+                    if hasattr(ec, 'sample_data_suggestions') and ec.sample_data_suggestions:
+                        details += f"\n\n📊 Sample Data Suggestions:"
+                        for data in ec.sample_data_suggestions:
+                            details += f"\n  - {data}"
+
+                    if hasattr(ec, 'validation_checkpoints') and ec.validation_checkpoints:
+                        details += f"\n\n✓ Validation Checkpoints:"
+                        for check in ec.validation_checkpoints:
+                            details += f"\n  - {check}"
+
+                    if hasattr(ec, 'common_pitfalls') and ec.common_pitfalls:
+                        details += f"\n\n⚠️  Common Pitfalls to Avoid:"
+                        for pit in ec.common_pitfalls:
+                            details += f"\n  - {pit}"
+
+                    logger.info(f"Enhanced context for {feature.name} with AI-extracted content including lab hints")
+                else:
+                    logger.warning(f"No llm_extracted content found for {feature.name}")
 
             feature_details_parts.append(details)
 

@@ -100,17 +100,64 @@
                         <h2>Feature Management</h2>
                         <div class="tab-actions">
                             <div class="search-box">
-                                <input type="text" id="feature-search" placeholder="Search features...">
+                                <input type="text" id="feature-search" placeholder="Search features..." onkeyup="window.app.filterFeatures()">
                                 <i class="fas fa-search"></i>
                             </div>
+                            <select id="research-status-filter" onchange="window.app.filterFeatures()">
+                                <option value="">All Status</option>
+                                <option value="completed">Researched</option>
+                                <option value="pending">Not Researched</option>
+                                <option value="in_progress">In Progress</option>
+                                <option value="failed">Failed</option>
+                            </select>
+                            <button class="btn btn-danger btn-small" onclick="window.app.deleteSelectedFeatures()" id="bulk-delete-btn" style="display: none;">
+                                <i class="fas fa-trash"></i> Delete Selected
+                            </button>
+                            <button class="btn btn-primary btn-small" onclick="window.app.researchSelectedFeatures()" id="bulk-research-btn" style="display: none;">
+                                <i class="fas fa-search"></i> Research Selected
+                            </button>
                         </div>
                     </div>
 
-                    <div class="features-grid" id="features-grid">
-                        <!-- Features will be loaded here -->
-                        <div class="loading">
-                            <i class="fas fa-spinner fa-spin"></i>
-                            Loading features...
+                    <div class="table-container">
+                        <table id="features-table" class="analytics-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 40px;">
+                                        <input type="checkbox" id="select-all-features" onchange="window.app.toggleAllFeatures()">
+                                    </th>
+                                    <th class="sortable" onclick="window.app.sortFeatures('name')">
+                                        Name <i class="fas fa-sort"></i>
+                                    </th>
+                                    <th class="sortable" style="width: 120px;" onclick="window.app.sortFeatures('domain')">
+                                        Domain <i class="fas fa-sort"></i>
+                                    </th>
+                                    <th class="sortable" style="width: 80px;" onclick="window.app.sortFeatures('benefits')">
+                                        Benefits <i class="fas fa-sort"></i>
+                                    </th>
+                                    <th class="sortable" style="width: 130px;" onclick="window.app.sortFeatures('research')">
+                                        Research <i class="fas fa-sort"></i>
+                                    </th>
+                                    <th class="sortable" style="width: 110px;" onclick="window.app.sortFeatures('researched')">
+                                        Researched <i class="fas fa-sort"></i>
+                                    </th>
+                                    <th class="sortable" style="width: 70px;" onclick="window.app.sortFeatures('docs')">
+                                        Docs <i class="fas fa-sort"></i>
+                                    </th>
+                                    <th class="sortable" style="width: 110px;" onclick="window.app.sortFeatures('created')">
+                                        Created <i class="fas fa-sort"></i>
+                                    </th>
+                                    <th style="width: 140px;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="features-table-body">
+                                <!-- Features will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="loading" id="features-loading" style="display: none;">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        Loading features...
                         </div>
                     </div>
                 </div>
@@ -234,7 +281,10 @@
                                 </div>
                             </div>
                             <div class="preview-content-large" id="presentation-content">
-                                <!-- Generated presentation will appear here -->
+                                <div class="empty-state">
+                                    <i class="fas fa-presentation fa-3x"></i>
+                                    <p>Select features and click "Generate Presentation" to see your slides here</p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -332,7 +382,10 @@
                                 </div>
                             </div>
                             <div class="preview-content-large" id="lab-content">
-                                <!-- Generated labs will appear here -->
+                                <div class="empty-state">
+                                    <i class="fas fa-flask fa-3x"></i>
+                                    <p>Select features and click "Generate Labs" to see your workshop here</p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -395,33 +448,129 @@
                         </div>
                     </div>
 
-                    <!-- Generated Content History -->
-                    <div class="analytics-section">
-                        <h3>Generated Content History</h3>
-                        <div class="content-filters">
-                            <select id="content-type-filter" onchange="window.app.filterGeneratedContent()">
-                                <option value="">All Types</option>
-                                <option value="presentation">Presentations</option>
-                                <option value="lab">Labs</option>
-                            </select>
-                            <select id="content-domain-filter" onchange="window.app.filterGeneratedContent()">
-                                <option value="">All Domains</option>
-                                <option value="search">Search</option>
-                                <option value="observability">Observability</option>
-                                <option value="security">Security</option>
-                                <option value="all_domains">All Domains (Unified)</option>
-                            </select>
+                    <!-- Analytics Sub-Tabs -->
+                    <div class="analytics-tabs">
+                        <div class="tab-nav">
+                            <button class="tab-btn active" onclick="window.app.showAnalyticsTab('content')">
+                                <i class="fas fa-file-alt"></i> Generated Content
+                            </button>
+                            <button class="tab-btn" onclick="window.app.showAnalyticsTab('activity')">
+                                <i class="fas fa-robot"></i> LLM Activity
+                            </button>
                         </div>
-                        <div id="generated-content-list" class="content-history-list">
-                            <!-- Generated content history will be loaded here -->
-                        </div>
-                    </div>
 
-                    <!-- Recent LLM Logs -->
-                    <div class="analytics-section">
-                        <h3>Recent LLM Activity</h3>
-                        <div id="llm-logs-list" class="logs-list">
-                            <!-- Recent LLM logs will be loaded here -->
+                        <!-- Generated Content Tab -->
+                        <div id="analytics-content-tab" class="analytics-tab-panel active">
+                            <div class="analytics-section">
+                                <div class="section-header">
+                                    <h3>Generated Content History</h3>
+                                    <div class="content-filters">
+                                        <select id="content-type-filter" onchange="window.app.filterGeneratedContent()">
+                                            <option value="">All Types</option>
+                                            <option value="presentation">Presentations</option>
+                                            <option value="lab">Labs</option>
+                                        </select>
+                                        <select id="content-domain-filter" onchange="window.app.filterGeneratedContent()">
+                                            <option value="">All Domains</option>
+                                            <option value="search">Search</option>
+                                            <option value="observability">Observability</option>
+                                            <option value="security">Security</option>
+                                            <option value="all_domains">All Domains (Unified)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="table-container">
+                                    <table id="generated-content-table" class="analytics-table">
+                                        <thead>
+                                            <tr>
+                                                <th class="sortable" onclick="window.app.sortContent('type')">
+                                                    Type <i class="fas fa-sort"></i>
+                                                </th>
+                                                <th class="sortable" onclick="window.app.sortContent('title')">
+                                                    Title <i class="fas fa-sort"></i>
+                                                </th>
+                                                <th class="sortable" onclick="window.app.sortContent('domain')">
+                                                    Domain <i class="fas fa-sort"></i>
+                                                </th>
+                                                <th class="sortable" onclick="window.app.sortContent('features')">
+                                                    Features <i class="fas fa-sort"></i>
+                                                </th>
+                                                <th class="sortable" onclick="window.app.sortContent('timestamp')">
+                                                    Created <i class="fas fa-sort"></i>
+                                                </th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="generated-content-body">
+                                            <!-- Content rows will be loaded here -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- LLM Activity Tab -->
+                        <div id="analytics-activity-tab" class="analytics-tab-panel">
+                            <div class="analytics-section">
+                                <div class="section-header">
+                                    <h3>Recent LLM Activity</h3>
+                                    <div class="activity-filters">
+                                        <select id="activity-operation-filter" onchange="window.app.filterLLMActivity()">
+                                            <option value="">All Operations</option>
+                                            <option value="extract">Extract</option>
+                                            <option value="generate_presentation">Generate Presentation</option>
+                                            <option value="generate_lab">Generate Lab</option>
+                                        </select>
+                                        <select id="activity-domain-filter" onchange="window.app.filterLLMActivity()">
+                                            <option value="">All Domains</option>
+                                            <option value="search">Search</option>
+                                            <option value="observability">Observability</option>
+                                            <option value="security">Security</option>
+                                        </select>
+                                        <select id="activity-provider-filter" onchange="window.app.filterLLMActivity()">
+                                            <option value="">All Providers</option>
+                                            <option value="openai">OpenAI</option>
+                                            <option value="gemini">Gemini</option>
+                                            <option value="claude">Claude</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="table-container">
+                                    <table id="llm-activity-table" class="analytics-table">
+                                        <thead>
+                                            <tr>
+                                                <th class="sortable" onclick="window.app.sortActivity('operation')">
+                                                    Operation <i class="fas fa-sort"></i>
+                                                </th>
+                                                <th class="sortable" onclick="window.app.sortActivity('features')">
+                                                    Features <i class="fas fa-sort"></i>
+                                                </th>
+                                                <th class="sortable" onclick="window.app.sortActivity('domain')">
+                                                    Domain <i class="fas fa-sort"></i>
+                                                </th>
+                                                <th class="sortable" onclick="window.app.sortActivity('provider')">
+                                                    Provider <i class="fas fa-sort"></i>
+                                                </th>
+                                                <th class="sortable" onclick="window.app.sortActivity('tokens')">
+                                                    Tokens <i class="fas fa-sort"></i>
+                                                </th>
+                                                <th class="sortable" onclick="window.app.sortActivity('cost')">
+                                                    Cost <i class="fas fa-sort"></i>
+                                                </th>
+                                                <th class="sortable" onclick="window.app.sortActivity('duration')">
+                                                    Duration <i class="fas fa-sort"></i>
+                                                </th>
+                                                <th class="sortable" onclick="window.app.sortActivity('timestamp')">
+                                                    Time <i class="fas fa-sort"></i>
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="llm-activity-body">
+                                            <!-- Activity rows will be loaded here -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

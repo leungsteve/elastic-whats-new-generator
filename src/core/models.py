@@ -196,6 +196,29 @@ class LLMExtractedContent(BaseModel):
     key_capabilities: List[str] = Field(default_factory=list, description="Core technical capabilities")
     benefits: List[str] = Field(default_factory=list, description="Business and technical benefits")
     technical_requirements: List[str] = Field(default_factory=list, description="Prerequisites and requirements")
+    configuration_examples: List[str] = Field(default_factory=list, description="Complete configuration blocks with full syntax")
+    metrics_examples: List[str] = Field(default_factory=list, description="Concrete before/after metrics with numbers (e.g., '192GB → 9GB')")
+    api_commands: List[str] = Field(default_factory=list, description="Complete API/CLI commands with full request/response examples")
+
+    # Enhanced fields
+    implementation_steps: List[str] = Field(default_factory=list, description="Step-by-step implementation guide")
+    limitations: List[str] = Field(default_factory=list, description="Known limitations, caveats, and constraints")
+    prerequisites: List[str] = Field(default_factory=list, description="Required dependencies and setup")
+    version_info: Optional[str] = Field(None, description="Minimum version and availability (e.g., '9.1.0+, Serverless Preview')")
+    comparisons: List[str] = Field(default_factory=list, description="Performance/feature comparisons from documentation")
+
+    # Lab generation hints
+    hands_on_exercise_ideas: List[str] = Field(default_factory=list, description="Specific exercise ideas for hands-on labs")
+    sample_data_suggestions: List[str] = Field(default_factory=list, description="Sample datasets or data types to use in labs")
+    validation_checkpoints: List[str] = Field(default_factory=list, description="What users should verify at each step")
+    common_pitfalls: List[str] = Field(default_factory=list, description="Common mistakes and troubleshooting tips")
+
+    # Presentation generation hints
+    demo_scenario: Optional[str] = Field(None, description="Compelling demo scenario for presentations")
+    business_impact_metrics: List[str] = Field(default_factory=list, description="Quantified business benefits for executive audiences")
+    competitive_advantages: List[str] = Field(default_factory=list, description="How this compares to alternatives/competitors")
+    visual_aids_suggestions: List[str] = Field(default_factory=list, description="Suggested diagrams, charts, or visual representations")
+
     target_audience: str = Field(default="developers", description="Primary target audience")
     complexity_level: str = Field(default="intermediate", description="Technical complexity (beginner/intermediate/advanced)")
     extracted_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="Extraction timestamp")

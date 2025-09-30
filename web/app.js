@@ -26,13 +26,13 @@ class ElasticGenerator {
 
         // Search functionality
         document.getElementById('feature-search').addEventListener('input', (e) => {
-            this.filterFeatures(e.target.value);
+            this.filterFeatures();
         });
 
         // Domain filtering
         document.querySelectorAll('input[name="domain"]').forEach(checkbox => {
             checkbox.addEventListener('change', () => {
-                this.filterFeaturesByDomain();
+                this.renderFeatures();
             });
         });
 
@@ -40,7 +40,16 @@ class ElasticGenerator {
         const testFeatureToggle = document.getElementById('show-test-features');
         if (testFeatureToggle) {
             testFeatureToggle.addEventListener('change', () => {
-                this.filterFeaturesByTestStatus();
+                this.renderFeatures();
+                // Also update presentation and lab feature selectors
+                const presentationContainer = document.getElementById('presentation-features');
+                const labContainer = document.getElementById('lab-features');
+                if (presentationContainer) {
+                    this.populateFeatureSelector('presentation-features');
+                }
+                if (labContainer) {
+                    this.populateFeatureSelector('lab-features');
+                }
             });
         }
 
@@ -92,7 +101,7 @@ class ElasticGenerator {
     // Feature Management
     async loadFeatures() {
         try {
-            this.showLoading('features-grid');
+            this.showLoading('features-table-body');
 
             // Try to load from API, fall back to sample data
             try {
@@ -236,60 +245,508 @@ class ElasticGenerator {
     }
 
     renderFeatures() {
-        const grid = document.getElementById('features-grid');
+        const tbody = document.getElementById('features-table-body');
 
         if (this.features.length === 0) {
-            grid.innerHTML = `
-                <div class="loading">
-                    <i class="fas fa-box-open"></i>
-                    No features found. Add some features to get started!
-                </div>
-            `;
+            tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 40px; color: #718096;"><i class="fas fa-box-open"></i><br>No features found. Add some features to get started!</td></tr>';
             return;
         }
 
         // Filter features to show
         const testToggle = document.getElementById('show-test-features');
         const showTestFeatures = testToggle ? testToggle.checked : false;
-        console.log(`Rendering features - Show test features: ${showTestFeatures}`);
 
-        const featuresToRender = this.features.filter(feature => {
-            // Always show non-test features, only show test features if toggle is enabled
+        let featuresToRender = this.features.filter(feature => {
             const isTest = this.isTestFeature(feature);
-            const shouldShow = !isTest || showTestFeatures;
-            console.log(`${feature.name} - Test: ${isTest}, Show: ${shouldShow}`);
-            return shouldShow;
+            return !isTest || showTestFeatures;
         });
 
-        console.log(`Total features: ${this.features.length}, Rendering: ${featuresToRender.length}`);
+        // Apply additional filters
+        featuresToRender = this.applyFeatureFilters(featuresToRender);
 
-        grid.innerHTML = featuresToRender.map(feature => `
-            <div class="feature-card" data-id="${feature.id}">
-                <h3>${feature.name}</h3>
-                <div class="domain-badge ${feature.domain}">${feature.domain}</div>
-                <p>${feature.description}</p>
+        let html = '';
+        for (const feature of featuresToRender) {
+            const created = new Date(feature.created_at).toLocaleString('en-US', {
+                month: 'short', day: 'numeric', year: 'numeric'
+            });
 
-                ${feature.benefits && feature.benefits.length > 0 ? `
-                <div class="benefits">
-                    <h4>Benefits:</h4>
-                    <ul>
-                        ${feature.benefits.slice(0, 3).map(benefit => `<li>${benefit}</li>`).join('')}
-                    </ul>
-                </div>
-                ` : ''}
+            // Research status
+            const research = feature.content_research || {};
+            const status = research.status || 'pending';
+            const hasLlmExtracted = research.llm_extracted && research.llm_extracted.summary;
 
-                ${this.renderContentResearchSection(feature)}
+            let statusBadge = '';
+            switch(status) {
+                case 'completed':
+                    statusBadge = hasLlmExtracted
+                        ? '<span class="status-badge status-completed"><i class="fas fa-check-circle"></i> Complete</span>'
+                        : '<span class="status-badge status-pending"><i class="fas fa-clock"></i> Empty</span>';
+                    break;
+                case 'in_progress':
+                    statusBadge = '<span class="status-badge status-progress"><i class="fas fa-spinner fa-pulse"></i> In Progress</span>';
+                    break;
+                case 'failed':
+                    statusBadge = '<span class="status-badge status-failed"><i class="fas fa-exclamation-circle"></i> Failed</span>';
+                    break;
+                default:
+                    statusBadge = '<span class="status-badge status-pending"><i class="fas fa-minus-circle"></i> Pending</span>';
+            }
 
-                <div class="feature-actions">
-                    <button class="btn btn-secondary btn-small" onclick="app.editFeature('${feature.id}')">
-                        <i class="fas fa-edit"></i> Edit
-                    </button>
-                    <button class="btn btn-secondary btn-small" onclick="app.deleteFeature('${feature.id}')">
-                        <i class="fas fa-trash"></i> Delete
-                    </button>
-                </div>
-            </div>
-        `).join('');
+            // Docs indicator
+            const docsCount = feature.documentation_links?.length || 0;
+            const docsInfo = docsCount > 0
+                ? `<span class="docs-badge"><i class="fas fa-link"></i> ${docsCount}</span>`
+                : '<span style="color: #cbd5e0;">-</span>';
+
+            // Benefits count
+            const benefitsCount = feature.benefits?.length || 0;
+
+            // Research timestamp
+            let researchedTime = '-';
+            if (research.last_updated && (status === 'completed' || status === 'failed')) {
+                researchedTime = new Date(research.last_updated).toLocaleString('en-US', {
+                    month: 'short', day: 'numeric', year: 'numeric',
+                    hour: 'numeric', minute: '2-digit'
+                });
+            }
+
+            html += `
+                <tr>
+                    <td><input type="checkbox" class="feature-checkbox" value="${feature.id}" onchange="window.app.updateBulkButtons()"></td>
+                    <td class="title-cell">
+                        <div class="feature-name-cell">
+                            <strong>${feature.name}</strong>
+                            <button class="btn-expand" onclick="window.app.toggleFeatureDetails('${feature.id}')" title="Show details">
+                                <i class="fas fa-chevron-down" id="icon-${feature.id}"></i>
+                            </button>
+                        </div>
+                    </td>
+                    <td><span class="domain-badge domain-${feature.domain}">${feature.domain}</span></td>
+                    <td class="number-cell">${benefitsCount}</td>
+                    <td>${statusBadge}</td>
+                    <td class="timestamp-cell">${researchedTime}</td>
+                    <td>${docsInfo}</td>
+                    <td class="timestamp-cell">${created}</td>
+                    <td class="actions-cell">
+                        ${status === 'pending' || status === 'failed' ? `
+                            <button class="btn-icon" onclick="window.app.triggerResearch('${feature.id}')" title="Start Research">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        ` : status === 'completed' ? `
+                            <button class="btn-icon" onclick="window.app.viewResearch('${feature.id}')" title="View Research">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button class="btn-icon" onclick="window.app.triggerResearch('${feature.id}')" title="Re-run Research">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        ` : `
+                            <button class="btn-icon" title="Research In Progress" disabled>
+                                <i class="fas fa-spinner fa-pulse"></i>
+                            </button>
+                        `}
+                        <button class="btn-icon" onclick="app.editFeature('${feature.id}')" title="Edit">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn-icon" onclick="app.deleteFeature('${feature.id}')" title="Delete">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+                <tr id="details-row-${feature.id}" class="details-row" style="display: none;">
+                    <td colspan="9" class="details-cell">
+                        <div class="feature-details-expanded">
+                            <div class="details-section">
+                                <strong>Description:</strong>
+                                <p>${feature.description}</p>
+                            </div>
+
+                            ${feature.benefits && feature.benefits.length > 0 ? `
+                                <div class="details-section">
+                                    <strong>Benefits:</strong>
+                                    <ul>
+                                        ${feature.benefits.map(b => `<li>${b}</li>`).join('')}
+                                    </ul>
+                                </div>
+                            ` : ''}
+
+                            ${feature.documentation_links && feature.documentation_links.length > 0 ? `
+                                <div class="details-section">
+                                    <strong>Documentation Links:</strong>
+                                    <ul>
+                                        ${feature.documentation_links.map(link => `<li><a href="${link}" target="_blank">${link}</a></li>`).join('')}
+                                    </ul>
+                                </div>
+                            ` : ''}
+
+                            ${hasLlmExtracted ? `
+                                <div class="details-section ai-section">
+                                    <h4>AI-Extracted Content</h4>
+
+                                    ${research.llm_extracted.version_info ? `
+                                        <div class="ai-version-badge">${research.llm_extracted.version_info}</div>
+                                    ` : ''}
+
+                                    <div class="ai-subsection">
+                                        <strong>Summary:</strong>
+                                        <p>${research.llm_extracted.summary || 'No summary available'}</p>
+                                    </div>
+
+                                    ${research.llm_extracted.key_capabilities && research.llm_extracted.key_capabilities.length > 0 ? `
+                                        <div class="ai-subsection">
+                                            <strong>Key Capabilities:</strong>
+                                            <ul>
+                                                ${research.llm_extracted.key_capabilities.map(cap => `<li>${cap}</li>`).join('')}
+                                            </ul>
+                                        </div>
+                                    ` : ''}
+
+                                    ${research.llm_extracted.use_cases && research.llm_extracted.use_cases.length > 0 ? `
+                                        <div class="ai-subsection">
+                                            <strong>Use Cases:</strong>
+                                            <ul>
+                                                ${research.llm_extracted.use_cases.map(uc => `<li>${uc}</li>`).join('')}
+                                            </ul>
+                                        </div>
+                                    ` : ''}
+
+                                    ${research.llm_extracted.prerequisites && research.llm_extracted.prerequisites.length > 0 ? `
+                                        <div class="ai-subsection">
+                                            <strong>Prerequisites:</strong>
+                                            <ul>
+                                                ${research.llm_extracted.prerequisites.map(pre => `<li>${pre}</li>`).join('')}
+                                            </ul>
+                                        </div>
+                                    ` : ''}
+
+                                    ${research.llm_extracted.implementation_steps && research.llm_extracted.implementation_steps.length > 0 ? `
+                                        <div class="ai-subsection">
+                                            <strong>Implementation Steps:</strong>
+                                            <ol class="steps-list">
+                                                ${research.llm_extracted.implementation_steps.map(step => `<li>${step}</li>`).join('')}
+                                            </ol>
+                                        </div>
+                                    ` : ''}
+
+                                    ${research.llm_extracted.configuration_examples && research.llm_extracted.configuration_examples.length > 0 ? `
+                                        <div class="ai-subsection">
+                                            <strong>Configuration Examples:</strong>
+                                            <ul class="code-list">
+                                                ${research.llm_extracted.configuration_examples.map(conf => `<li><pre><code>${conf.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code></pre></li>`).join('')}
+                                            </ul>
+                                        </div>
+                                    ` : ''}
+
+                                    ${research.llm_extracted.api_commands && research.llm_extracted.api_commands.length > 0 ? `
+                                        <div class="ai-subsection">
+                                            <strong>API Commands:</strong>
+                                            <ul class="code-list">
+                                                ${research.llm_extracted.api_commands.map(cmd => `<li><pre><code>${cmd.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code></pre></li>`).join('')}
+                                            </ul>
+                                        </div>
+                                    ` : ''}
+
+                                    ${research.llm_extracted.metrics_examples && research.llm_extracted.metrics_examples.length > 0 ? `
+                                        <div class="ai-subsection">
+                                            <strong>Performance Metrics:</strong>
+                                            <ul>
+                                                ${research.llm_extracted.metrics_examples.map(metric => `<li>${metric}</li>`).join('')}
+                                            </ul>
+                                        </div>
+                                    ` : ''}
+
+                                    ${research.llm_extracted.comparisons && research.llm_extracted.comparisons.length > 0 ? `
+                                        <div class="ai-subsection">
+                                            <strong>Comparisons:</strong>
+                                            <ul>
+                                                ${research.llm_extracted.comparisons.map(comp => `<li>${comp}</li>`).join('')}
+                                            </ul>
+                                        </div>
+                                    ` : ''}
+
+                                    ${research.llm_extracted.limitations && research.llm_extracted.limitations.length > 0 ? `
+                                        <div class="ai-subsection ai-limitations">
+                                            <strong>Limitations & Caveats:</strong>
+                                            <ul>
+                                                ${research.llm_extracted.limitations.map(lim => `<li>${lim}</li>`).join('')}
+                                            </ul>
+                                        </div>
+                                    ` : ''}
+
+                                    ${(research.llm_extracted.hands_on_exercise_ideas?.length > 0 ||
+                                       research.llm_extracted.sample_data_suggestions?.length > 0 ||
+                                       research.llm_extracted.validation_checkpoints?.length > 0 ||
+                                       research.llm_extracted.common_pitfalls?.length > 0) ? `
+                                        <div class="ai-section-divider">
+                                            <h5><i class="fas fa-flask"></i> Lab Generation Hints</h5>
+                                        </div>
+
+                                        ${research.llm_extracted.hands_on_exercise_ideas?.length > 0 ? `
+                                            <div class="ai-subsection ai-lab-hint">
+                                                <strong>Hands-On Exercise Ideas:</strong>
+                                                <ul>
+                                                    ${research.llm_extracted.hands_on_exercise_ideas.map(ex => `<li>${ex}</li>`).join('')}
+                                                </ul>
+                                            </div>
+                                        ` : ''}
+
+                                        ${research.llm_extracted.sample_data_suggestions?.length > 0 ? `
+                                            <div class="ai-subsection ai-lab-hint">
+                                                <strong>Sample Data Suggestions:</strong>
+                                                <ul>
+                                                    ${research.llm_extracted.sample_data_suggestions.map(data => `<li>${data}</li>`).join('')}
+                                                </ul>
+                                            </div>
+                                        ` : ''}
+
+                                        ${research.llm_extracted.validation_checkpoints?.length > 0 ? `
+                                            <div class="ai-subsection ai-lab-hint">
+                                                <strong>Validation Checkpoints:</strong>
+                                                <ul>
+                                                    ${research.llm_extracted.validation_checkpoints.map(check => `<li>${check}</li>`).join('')}
+                                                </ul>
+                                            </div>
+                                        ` : ''}
+
+                                        ${research.llm_extracted.common_pitfalls?.length > 0 ? `
+                                            <div class="ai-subsection ai-lab-hint">
+                                                <strong>Common Pitfalls:</strong>
+                                                <ul>
+                                                    ${research.llm_extracted.common_pitfalls.map(pit => `<li>${pit}</li>`).join('')}
+                                                </ul>
+                                            </div>
+                                        ` : ''}
+                                    ` : ''}
+
+                                    ${(research.llm_extracted.demo_scenario ||
+                                       research.llm_extracted.business_impact_metrics?.length > 0 ||
+                                       research.llm_extracted.competitive_advantages?.length > 0 ||
+                                       research.llm_extracted.visual_aids_suggestions?.length > 0) ? `
+                                        <div class="ai-section-divider">
+                                            <h5><i class="fas fa-presentation"></i> Presentation Generation Hints</h5>
+                                        </div>
+
+                                        ${research.llm_extracted.demo_scenario ? `
+                                            <div class="ai-subsection ai-presentation-hint">
+                                                <strong>Demo Scenario:</strong>
+                                                <p>${research.llm_extracted.demo_scenario}</p>
+                                            </div>
+                                        ` : ''}
+
+                                        ${research.llm_extracted.business_impact_metrics?.length > 0 ? `
+                                            <div class="ai-subsection ai-presentation-hint">
+                                                <strong>Business Impact Metrics:</strong>
+                                                <ul>
+                                                    ${research.llm_extracted.business_impact_metrics.map(metric => `<li>${metric}</li>`).join('')}
+                                                </ul>
+                                            </div>
+                                        ` : ''}
+
+                                        ${research.llm_extracted.competitive_advantages?.length > 0 ? `
+                                            <div class="ai-subsection ai-presentation-hint">
+                                                <strong>Competitive Advantages:</strong>
+                                                <ul>
+                                                    ${research.llm_extracted.competitive_advantages.map(adv => `<li>${adv}</li>`).join('')}
+                                                </ul>
+                                            </div>
+                                        ` : ''}
+
+                                        ${research.llm_extracted.visual_aids_suggestions?.length > 0 ? `
+                                            <div class="ai-subsection ai-presentation-hint">
+                                                <strong>Visual Aids Suggestions:</strong>
+                                                <ul>
+                                                    ${research.llm_extracted.visual_aids_suggestions.map(vis => `<li>${vis}</li>`).join('')}
+                                                </ul>
+                                            </div>
+                                        ` : ''}
+                                    ` : ''}
+                                </div>
+                            ` : ''}
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }
+
+        tbody.innerHTML = html;
+    }
+
+    applyFeatureFilters(features) {
+        const searchTerm = document.getElementById('feature-search')?.value.toLowerCase() || '';
+        const researchFilter = document.getElementById('research-status-filter')?.value || '';
+
+        return features.filter(feature => {
+            // Search filter
+            if (searchTerm) {
+                const searchable = [
+                    feature.name,
+                    feature.description,
+                    ...(feature.benefits || [])
+                ].join(' ').toLowerCase();
+                if (!searchable.includes(searchTerm)) {
+                    return false;
+                }
+            }
+
+            // Research status filter
+            if (researchFilter) {
+                const status = feature.content_research?.status || 'pending';
+                if (status !== researchFilter) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+    }
+
+    filterFeatures() {
+        this.renderFeatures();
+    }
+
+    sortFeatures(column) {
+        if (!this.featureSortColumn || this.featureSortColumn !== column) {
+            this.featureSortColumn = column;
+            this.featureSortDirection = 'asc';
+        } else {
+            this.featureSortDirection = this.featureSortDirection === 'asc' ? 'desc' : 'asc';
+        }
+
+        this.features.sort((a, b) => {
+            let aVal, bVal;
+            switch(column) {
+                case 'name': aVal = a.name; bVal = b.name; break;
+                case 'domain': aVal = a.domain; bVal = b.domain; break;
+                case 'benefits': aVal = a.benefits?.length || 0; bVal = b.benefits?.length || 0; break;
+                case 'research':
+                    aVal = a.content_research?.status || 'pending';
+                    bVal = b.content_research?.status || 'pending';
+                    break;
+                case 'researched':
+                    aVal = a.content_research?.last_updated ? new Date(a.content_research.last_updated) : new Date(0);
+                    bVal = b.content_research?.last_updated ? new Date(b.content_research.last_updated) : new Date(0);
+                    break;
+                case 'docs':
+                    aVal = a.documentation_links?.length || 0;
+                    bVal = b.documentation_links?.length || 0;
+                    break;
+                case 'created': aVal = new Date(a.created_at); bVal = new Date(b.created_at); break;
+                default: return 0;
+            }
+
+            if (aVal < bVal) return this.featureSortDirection === 'asc' ? -1 : 1;
+            if (aVal > bVal) return this.featureSortDirection === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        this.renderFeatures();
+    }
+
+    toggleFeatureDetails(featureId) {
+        const detailsRow = document.getElementById(`details-row-${featureId}`);
+        const icon = document.getElementById(`icon-${featureId}`);
+
+        if (detailsRow.style.display === 'none') {
+            detailsRow.style.display = 'table-row';
+            icon.className = 'fas fa-chevron-up';
+        } else {
+            detailsRow.style.display = 'none';
+            icon.className = 'fas fa-chevron-down';
+        }
+    }
+
+    toggleAllFeatures() {
+        const selectAll = document.getElementById('select-all-features');
+        const checkboxes = document.querySelectorAll('.feature-checkbox');
+        checkboxes.forEach(cb => cb.checked = selectAll.checked);
+        this.updateBulkButtons();
+    }
+
+    updateBulkButtons() {
+        const checked = document.querySelectorAll('.feature-checkbox:checked').length;
+        document.getElementById('bulk-delete-btn').style.display = checked > 0 ? 'inline-block' : 'none';
+        document.getElementById('bulk-research-btn').style.display = checked > 0 ? 'inline-block' : 'none';
+    }
+
+    async deleteSelectedFeatures() {
+        const selected = Array.from(document.querySelectorAll('.feature-checkbox:checked')).map(cb => cb.value);
+        if (selected.length === 0) return;
+
+        if (!confirm(`Delete ${selected.length} feature(s)?`)) return;
+
+        for (const id of selected) {
+            await this.deleteFeature(id, false);
+        }
+        await this.loadFeatures();
+        this.showToast(`Deleted ${selected.length} feature(s)`, 'success');
+    }
+
+    async researchSelectedFeatures() {
+        const selected = Array.from(document.querySelectorAll('.feature-checkbox:checked')).map(cb => cb.value);
+        if (selected.length === 0) return;
+
+        this.showToast(`Starting research for ${selected.length} feature(s)...`, 'info');
+
+        for (const id of selected) {
+            await this.triggerResearch(id, false);
+        }
+        await this.loadFeatures();
+        this.showToast(`Research completed for ${selected.length} feature(s)`, 'success');
+    }
+
+    async triggerResearch(featureId, showToast = true) {
+        // Get feature name for confirmation dialog
+        const feature = this.features.find(f => f.id === featureId);
+        const featureName = feature ? feature.name : 'this feature';
+        const isRerun = feature?.content_research?.status === 'completed';
+
+        // Show confirmation dialog
+        const confirmMessage = isRerun
+            ? `Re-run research for "${featureName}"?\n\n` +
+              `This will:\n` +
+              `• Scrape documentation URLs again\n` +
+              `• Use LLM to extract structured content (incurs API costs)\n` +
+              `• Overwrite existing research data\n\n` +
+              `Continue?`
+            : `Start research for "${featureName}"?\n\n` +
+              `This will:\n` +
+              `• Scrape documentation URLs\n` +
+              `• Use LLM to extract structured content (incurs API costs)\n` +
+              `• Enable enhanced presentation and lab generation\n\n` +
+              `Continue?`;
+
+        if (!confirm(confirmMessage)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`${this.apiBase}/features/${featureId}/research`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    feature_id: featureId,
+                    force_refresh: isRerun
+                })
+            });
+
+            if (response.ok) {
+                if (showToast) {
+                    this.showToast(isRerun ? 'Research re-started successfully' : 'Research started successfully', 'success');
+                }
+                await this.loadFeatures();
+            } else {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Research request failed');
+            }
+        } catch (error) {
+            console.error('Research failed:', error);
+            if (showToast) {
+                this.showToast(`Research failed: ${error.message}`, 'error');
+            }
+        }
+    }
+
+    async viewResearch(featureId) {
+        window.open(`/features/${featureId}/research/detailed`, '_blank');
     }
 
     renderContentResearchSection(feature) {
@@ -1255,7 +1712,6 @@ class ElasticGenerator {
         }
 
         content.textContent = previewText;
-        preview.style.display = 'flex';
     }
 
     async exportPresentation(format) {
@@ -1377,7 +1833,6 @@ class ElasticGenerator {
 
         const labContent = this.currentLabs.content || 'No content available';
         content.textContent = labContent;
-        preview.style.display = 'flex';
     }
 
     async exportLabs(exportFormat) {
@@ -1602,7 +2057,7 @@ class ElasticGenerator {
 
     async loadGeneratedContent() {
         try {
-            const response = await fetch('/api/generated-content?size=20');
+            const response = await fetch('/api/generated-content?size=50');
             const data = await response.json();
 
             this.allGeneratedContent = data.contents;
@@ -1613,23 +2068,42 @@ class ElasticGenerator {
     }
 
     renderGeneratedContent(contents) {
-        const container = document.getElementById('generated-content-list');
+        const tbody = document.getElementById('generated-content-body');
 
         if (!contents || contents.length === 0) {
-            container.innerHTML = '<p style="color: #718096; text-align: center; padding: 40px;">No generated content yet</p>';
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 40px; color: #718096;">No generated content yet</td></tr>';
             return;
         }
 
         let html = '';
         for (const content of contents) {
-            const timestamp = new Date(content.timestamp).toLocaleString();
-            const badgeClass = content.content_type === 'presentation' ? 'presentation' : 'lab';
+            const timestamp = new Date(content.generated_at).toLocaleString('en-US', {
+                month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+            });
             const icon = content.content_type === 'presentation' ? 'fa-file-powerpoint' : 'fa-flask';
+            const typeClass = content.content_type === 'presentation' ? 'type-presentation' : 'type-lab';
 
-            html += `<div class="content-item" onclick="window.app.viewContentDetails('${content.id}')"><div class="content-item-info"><div class="content-item-title">${content.title}</div><div class="content-item-meta"><span class="content-item-badge ${badgeClass}"><i class="fas ${icon}"></i> ${content.content_type}</span><span><i class="fas fa-layer-group"></i> ${content.domain}</span><span><i class="fas fa-list"></i> ${content.feature_names.length} feature(s)</span><span><i class="fas fa-clock"></i> ${timestamp}</span></div></div><div class="content-item-actions"><button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); window.app.downloadContent('${content.id}')"><i class="fas fa-download"></i></button></div></div>`;
+            // Get feature names (first 2)
+            const featureNames = content.feature_names.slice(0, 2).join(', ');
+            const moreFeatures = content.feature_names.length > 2 ? ` +${content.feature_names.length - 2}` : '';
+
+            html += `
+                <tr>
+                    <td><span class="type-badge ${typeClass}"><i class="fas ${icon}"></i> ${content.content_type}</span></td>
+                    <td class="title-cell">${content.title}</td>
+                    <td><span class="domain-badge domain-${content.domain}">${content.domain}</span></td>
+                    <td><span class="feature-count">${featureNames}${moreFeatures}</span></td>
+                    <td class="timestamp-cell">${timestamp}</td>
+                    <td class="actions-cell">
+                        <button class="btn-icon" onclick="window.app.downloadContent('${content.id}')" title="Download">
+                            <i class="fas fa-download"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
         }
 
-        container.innerHTML = html;
+        tbody.innerHTML = html;
     }
 
     filterGeneratedContent() {
@@ -1647,6 +2121,63 @@ class ElasticGenerator {
         }
 
         this.renderGeneratedContent(filtered);
+    }
+
+    sortContent(column) {
+        if (!this.contentSortColumn || this.contentSortColumn !== column) {
+            this.contentSortColumn = column;
+            this.contentSortDirection = 'asc';
+        } else {
+            this.contentSortDirection = this.contentSortDirection === 'asc' ? 'desc' : 'asc';
+        }
+
+        const sorted = [...(this.allGeneratedContent || [])].sort((a, b) => {
+            let aVal, bVal;
+            switch(column) {
+                case 'type': aVal = a.content_type; bVal = b.content_type; break;
+                case 'title': aVal = a.title; bVal = b.title; break;
+                case 'domain': aVal = a.domain; bVal = b.domain; break;
+                case 'features': aVal = a.feature_ids?.length || 0; bVal = b.feature_ids?.length || 0; break;
+                case 'timestamp': aVal = new Date(a.generated_at); bVal = new Date(b.generated_at); break;
+                default: return 0;
+            }
+
+            if (aVal < bVal) return this.contentSortDirection === 'asc' ? -1 : 1;
+            if (aVal > bVal) return this.contentSortDirection === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        this.renderGeneratedContent(sorted);
+    }
+
+    sortActivity(column) {
+        if (!this.activitySortColumn || this.activitySortColumn !== column) {
+            this.activitySortColumn = column;
+            this.activitySortDirection = 'asc';
+        } else {
+            this.activitySortDirection = this.activitySortDirection === 'asc' ? 'desc' : 'asc';
+        }
+
+        const sorted = [...(this.allLLMLogs || [])].sort((a, b) => {
+            let aVal, bVal;
+            switch(column) {
+                case 'operation': aVal = a.operation_type; bVal = b.operation_type; break;
+                case 'features': aVal = a.feature_ids?.length || 0; bVal = b.feature_ids?.length || 0; break;
+                case 'domain': aVal = a.domain || ''; bVal = b.domain || ''; break;
+                case 'provider': aVal = a.provider; bVal = b.provider; break;
+                case 'tokens': aVal = a.token_usage?.total_tokens || 0; bVal = b.token_usage?.total_tokens || 0; break;
+                case 'cost': aVal = a.estimated_cost_usd || 0; bVal = b.estimated_cost_usd || 0; break;
+                case 'duration': aVal = a.response_time_seconds; bVal = b.response_time_seconds; break;
+                case 'timestamp': aVal = new Date(a.timestamp); bVal = new Date(b.timestamp); break;
+                default: return 0;
+            }
+
+            if (aVal < bVal) return this.activitySortDirection === 'asc' ? -1 : 1;
+            if (aVal > bVal) return this.activitySortDirection === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        this.renderLLMLogs(sorted);
     }
 
     async viewContentDetails(contentId) {
@@ -1684,36 +2215,99 @@ class ElasticGenerator {
 
     async loadLLMLogs() {
         try {
-            const response = await fetch('/api/llm-usage/logs?size=20');
+            const response = await fetch('/api/llm-usage/logs?size=50');
             const data = await response.json();
 
-            this.renderLLMLogs(data.logs);
+            this.allLLMLogs = data.logs || [];
+            this.renderLLMLogs(this.allLLMLogs);
         } catch (error) {
             console.error('Failed to load LLM logs:', error);
         }
     }
 
+    showAnalyticsTab(tabName) {
+        // Update tab buttons
+        document.querySelectorAll('.analytics-tabs .tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        event.target.closest('.tab-btn').classList.add('active');
+
+        // Update tab panels
+        document.querySelectorAll('.analytics-tab-panel').forEach(panel => {
+            panel.classList.remove('active');
+        });
+        document.getElementById(`analytics-${tabName}-tab`).classList.add('active');
+    }
+
+    filterLLMActivity() {
+        const operationFilter = document.getElementById('activity-operation-filter').value;
+        const domainFilter = document.getElementById('activity-domain-filter').value;
+        const providerFilter = document.getElementById('activity-provider-filter').value;
+
+        let filtered = this.allLLMLogs;
+
+        if (operationFilter) {
+            filtered = filtered.filter(log => log.operation_type === operationFilter);
+        }
+        if (domainFilter) {
+            filtered = filtered.filter(log => log.domain === domainFilter);
+        }
+        if (providerFilter) {
+            filtered = filtered.filter(log => log.provider === providerFilter);
+        }
+
+        this.renderLLMLogs(filtered);
+    }
+
     renderLLMLogs(logs) {
-        const container = document.getElementById('llm-logs-list');
+        const tbody = document.getElementById('llm-activity-body');
 
         if (!logs || logs.length === 0) {
-            container.innerHTML = '<p style="color: #718096; text-align: center; padding: 40px;">No LLM activity yet</p>';
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 40px; color: #718096;">No LLM activity yet</td></tr>';
             return;
         }
 
         let html = '';
         for (const log of logs) {
-            const timestamp = new Date(log.timestamp).toLocaleString();
-            const statusClass = log.success ? 'success' : 'error';
-            const statusIcon = log.success ? 'fa-check-circle' : 'fa-exclamation-circle';
-            const tokenInfo = log.token_usage ? `<span><i class="fas fa-coins"></i> ${log.token_usage.total_tokens} tokens</span>` : '';
-            const costInfo = log.estimated_cost_usd ? `<span><i class="fas fa-dollar-sign"></i> $${log.estimated_cost_usd.toFixed(6)}</span>` : '';
-            const timeInfo = `${log.response_time_seconds.toFixed(2)}s`;
+            const timestamp = new Date(log.timestamp).toLocaleString('en-US', {
+                month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+            });
+            const statusIcon = log.success ? '<i class="fas fa-check-circle" style="color: #48bb78;"></i>' : '<i class="fas fa-exclamation-circle" style="color: #f56565;"></i>';
 
-            html += `<div class="log-item ${statusClass}"><div class="log-item-header"><span class="log-item-operation"><i class="fas ${statusIcon}"></i> ${log.operation_type}</span><span class="log-item-time">${timestamp}</span></div><div class="log-item-meta"><span><i class="fas fa-robot"></i> ${log.provider} / ${log.model}</span>${tokenInfo}${costInfo}<span><i class="fas fa-clock"></i> ${timeInfo}</span></div></div>`;
+            // Build feature context string with names
+            let featureContext = '-';
+            if (log.feature_ids && log.feature_ids.length > 0) {
+                const displayFeatures = log.feature_ids.slice(0, 1).map(id => {
+                    const feature = this.features.find(f => f.id === id);
+                    return feature ? feature.name : id;
+                });
+                const moreCount = log.feature_ids.length - displayFeatures.length;
+                featureContext = displayFeatures[0];
+                if (moreCount > 0) {
+                    featureContext += ` <span style="color: #a0aec0;">+${moreCount}</span>`;
+                }
+            }
+
+            const domainBadge = log.domain ? `<span class="domain-badge domain-${log.domain}">${log.domain}</span>` : '-';
+            const tokens = log.token_usage ? log.token_usage.total_tokens.toLocaleString() : '-';
+            const cost = log.estimated_cost_usd ? `$${log.estimated_cost_usd.toFixed(4)}` : '-';
+            const duration = `${log.response_time_seconds.toFixed(2)}s`;
+
+            html += `
+                <tr>
+                    <td>${statusIcon} ${log.operation_type}</td>
+                    <td class="features-cell">${featureContext}</td>
+                    <td>${domainBadge}</td>
+                    <td><span class="provider-badge">${log.provider}</span></td>
+                    <td class="number-cell">${tokens}</td>
+                    <td class="number-cell">${cost}</td>
+                    <td class="number-cell">${duration}</td>
+                    <td class="timestamp-cell">${timestamp}</td>
+                </tr>
+            `;
         }
 
-        container.innerHTML = html;
+        tbody.innerHTML = html;
     }
 }
 
