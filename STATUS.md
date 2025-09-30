@@ -31,16 +31,30 @@
 
 ## 2. What We're Currently Working On
 
-### ✅ Recently Completed
-- All critical 500 errors in advanced storytelling endpoints have been resolved
-- Web scraping pipeline is fully functional and tested
-- Sample data has been updated with working URLs
-- All changes have been committed and pushed to GitHub
+### ✅ Recently Completed (Latest: 2025-09-30)
+- **UI Layout Optimization**: Fixed white space issues in presentations/labs split-view layout
+  - Resolved `.tab-content` not filling parent `.content` container (added width/height: 100%)
+  - Reduced sidebar width from 260px to 180px for more workspace
+  - Reduced main container padding/gap from 1rem to 0.5rem
+  - Made `.content` background transparent for cleaner split-view appearance
+- **Enhanced Content Extraction**: Added lab and presentation generation hints
+  - 8 new fields in LLMExtractedContent (hands-on exercises, sample data, validation checkpoints, demo scenarios, etc.)
+  - 16 detailed extraction guidelines (expanded from 8) for better AI content generation
+  - Lab hints and presentation hints now integrated into generation context
+- **Research Trigger UI**: Added research action buttons with status-based icons
+  - Confirmation dialog for LLM cost awareness
+  - Fixed API request body format (feature_id, force_refresh)
+  - Enhanced feature details display with lab/presentation hint sections
+- **Debugging Protocol**: Added comprehensive debugging guidelines to CLAUDE.md
+  - Evidence-first approach with DevTools screenshots
+  - Anti-patterns to avoid during troubleshooting
+  - One targeted fix methodology
 
 ### Current Status
-- **Application is Ready for Use**: End-to-end flow from feature creation to presentation generation works
-- **Content Quality**: Scraped content is now properly integrated into presentations
-- **API Stability**: All 34 endpoints are functional with proper error handling
+- **Application is Production Ready**: End-to-end flow from feature creation to presentation generation works
+- **UI Optimized**: Split-view layouts provide maximum workspace with minimal chrome
+- **Content Quality**: Enhanced AI extraction provides better hints for lab and presentation generation
+- **API Stability**: All 34 endpoints functional with proper error handling
 
 ## 3. What's Next
 
@@ -64,6 +78,20 @@
 - **FastAPI + Elasticsearch**: RESTful API design with document-based feature storage
 
 ### Critical Gotchas & Lessons Learned
+
+#### UI/CSS Debugging (NEW - 2025-09-30)
+```css
+/* GOTCHA: Block elements don't automatically fill parent height/width */
+.tab-content.active {
+    display: block;
+    width: 100%;   /* Required! */
+    height: 100%;  /* Required! */
+}
+/* Without these, gray space appears even with padding: 0 */
+
+/* LESSON: Always request DevTools screenshot BEFORE making CSS changes */
+/* Don't make 5+ incremental adjustments - diagnose root cause first */
+```
 
 #### Web Scraping Configuration
 ```python

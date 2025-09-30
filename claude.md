@@ -59,6 +59,44 @@
 - Reference existing files rather than re-explaining
 - Use tools for external data access
 
+## Debugging Protocol - CRITICAL
+When the user reports a UI/layout/styling issue:
+
+**STOP. DO NOT make incremental changes. Follow this protocol:**
+
+1. **Gather Diagnostic Evidence FIRST** (before making ANY changes):
+   - Ask user to open DevTools (F12)
+   - Ask user to inspect the problematic element (right-click → Inspect)
+   - Request a screenshot showing DevTools Elements panel with:
+     - The highlighted element in the DOM tree
+     - The Computed/Styles panel showing box model (margin, padding, width, height)
+   - Ask: "Does the issue change when you resize the browser window?"
+
+2. **Analyze Root Cause**:
+   - Identify the ACTUAL element causing the issue (not assumptions)
+   - Check parent-child relationships and how they fill/expand
+   - Verify flex/grid layouts and their fill behavior
+   - Look for: width, height, margin, padding, flex, position, display properties
+
+3. **Make ONE Targeted Fix**:
+   - Change only the specific property causing the issue
+   - Add cache-busting parameter if touching CSS (e.g., `?v=timestamp`)
+   - Explain what you're changing and WHY
+
+4. **Verify the Fix**:
+   - Ask user: "Did this specific change have ANY effect?"
+   - If "no change" after 2 attempts, STOP and request DevTools screenshot
+   - Do NOT make more than 2 changes without visual confirmation
+
+**Anti-Patterns to AVOID:**
+- ❌ Making 5+ incremental padding/margin adjustments without verification
+- ❌ Assuming caching issues without evidence
+- ❌ Changing multiple CSS properties at once without knowing which one matters
+- ❌ Making changes based on assumptions instead of DevTools evidence
+- ❌ Continuing down a path when user says "same" multiple times
+
+**Remember:** One targeted fix based on evidence beats ten guesses.
+
 ## AI Tool Integration
 - **Elastic MCP**: Elastic documentation lookup, Elastic feature validation
 - **Web Search**: Competitive research showing Elastic differentiation
